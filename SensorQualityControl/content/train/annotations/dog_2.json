@@ -1,0 +1,24 @@
+{
+    "images": [
+        {
+            "file_name": "dog1.jpg",
+            "height": 720,
+            "width": 1200,
+            "id": 1
+        }
+    ],
+    "annotations": [
+        {
+            "image_id": 1,
+            "bbox": [
+                221,
+                38,
+                343,
+                682
+            ],
+            "category_id": 1,
+            "id": 1
+        }
+    ],
+    "categories": []
+}
