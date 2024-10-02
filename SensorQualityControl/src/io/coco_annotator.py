@@ -21,7 +21,7 @@ class AnnotationGUI:
         self.current_image_index = 0
         self.annotations = {"images": [], "annotations": [], "categories": []}
         self.bbox_start = None
-        self.bboxes = []
+        self.bboxes = {}
 
         # Predefined categories
         self.categories = ["Dogs", "Cats", "Birds", "Rabbits"]
@@ -89,7 +89,13 @@ class AnnotationGUI:
         # Clear previous image and display the new image on the canvas
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, image=self.photo_image, anchor=tk.NW)
-        self.bboxes = []
+
+        # Load existing bounding boxes for the current image
+        self.bboxes.setdefault(self.current_image_index, [])
+        for bbox in self.bboxes[self.current_image_index]:
+            self.canvas.create_rectangle(
+                bbox[0], bbox[1], bbox[2], bbox[3], outline="green", tags="bbox"
+            )
 
     def on_click(self, event):
         """Start drawing a bounding box."""
@@ -97,24 +103,30 @@ class AnnotationGUI:
 
     def on_drag(self, event):
         """Show the rectangle as the user drags the mouse."""
-        self.canvas.delete("bbox")
+        self.canvas.delete("current_bbox")
         self.canvas.create_rectangle(
             self.bbox_start[0],
             self.bbox_start[1],
             event.x,
             event.y,
             outline="red",
-            tags="bbox",
+            tags="current_bbox",
         )
 
     def on_release(self, event):
         """Complete the bounding box annotation."""
         bbox_end = (event.x, event.y)
         bbox = self.normalize_bbox(self.bbox_start, bbox_end)
-        self.bboxes.append(bbox)
+
+        # Store the bounding box for the current image
+        self.bboxes[self.current_image_index].append(bbox)
+
+        # Display the final bounding box in green
         self.canvas.create_rectangle(
             bbox[0], bbox[1], bbox[2], bbox[3], outline="green", tags="bbox"
         )
+
+        # Save the bounding box annotation
         self.save_bbox(bbox)
 
     def normalize_bbox(self, start, end):
@@ -152,13 +164,14 @@ class AnnotationGUI:
 
     def save_annotations(self):
         """Save all annotations to a COCO JSON file."""
-        image_data = {
-            "file_name": self.image_list[self.current_image_index],
-            "height": self.current_image.height,
-            "width": self.current_image.width,
-            "id": self.current_image_index + 1,
-        }
-        self.annotations["images"].append(image_data)
+        for image_index, bboxes in self.bboxes.items():
+            image_data = {
+                "file_name": self.image_list[image_index],
+                "height": self.current_image.height,
+                "width": self.current_image.width,
+                "id": image_index + 1,
+            }
+            self.annotations["images"].append(image_data)
 
         # Add category metadata to the "categories" field if not already present
         for category in self.categories:

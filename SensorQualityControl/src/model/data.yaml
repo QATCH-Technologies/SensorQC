@@ -1,0 +1,4 @@
+train: /content/train/images
+val: /content/test/images
+nc: 4
+names: ['Book_Custom', 'Bottle_Custom', 'DOGO!', 'plant_thing']  # List of class names

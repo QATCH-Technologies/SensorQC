@@ -1,0 +1,300 @@
+{
+    "info": {
+        "description": "Custom Dataset converted from Labelme format",
+        "url": "http://example.com",
+        "version": "1.0",
+        "year": 2024,
+        "contributor": "Your Name or Organization",
+        "date_created": "2024-10-02 17:04:45"
+    },
+    "licenses": [
+        {
+            "id": 1,
+            "name": "Attribution-NonCommercial-ShareAlike License",
+            "url": "http://creativecommons.org/licenses/by-nc-sa/4.0/"
+        }
+    ],
+    "images": [
+        {
+            "id": 1,
+            "width": 500,
+            "height": 500,
+            "file_name": "..\\images\\bottle_book.png",
+            "license": 1
+        },
+        {
+            "id": 2,
+            "width": 1200,
+            "height": 720,
+            "file_name": "..\\images\\dog1.jpg",
+            "license": 1
+        },
+        {
+            "id": 3,
+            "width": 1200,
+            "height": 1197,
+            "file_name": "..\\images\\dog2.jpg",
+            "license": 1
+        },
+        {
+            "id": 4,
+            "width": 1024,
+            "height": 512,
+            "file_name": "..\\images\\dog3.jpg",
+            "license": 1
+        },
+        {
+            "id": 5,
+            "width": 5184,
+            "height": 3888,
+            "file_name": "..\\images\\dog4.jpg",
+            "license": 1
+        },
+        {
+            "id": 6,
+            "width": 729,
+            "height": 486,
+            "file_name": "..\\images\\dog5.jpg",
+            "license": 1
+        },
+        {
+            "id": 7,
+            "width": 500,
+            "height": 500,
+            "file_name": "..\\images\\plant_book.png",
+            "license": 1
+        }
+    ],
+    "annotations": [
+        {
+            "id": 1,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [
+                100.5,
+                236.5,
+                314.0,
+                245.0
+            ],
+            "area": 76930.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 2,
+            "image_id": 1,
+            "category_id": 2,
+            "bbox": [
+                26.5,
+                44.5,
+                112.0,
+                252.0
+            ],
+            "area": 28224.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 3,
+            "image_id": 2,
+            "category_id": 3,
+            "bbox": [
+                166.0,
+                28.0,
+                361.0,
+                691.0
+            ],
+            "area": 249451.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 4,
+            "image_id": 2,
+            "category_id": 3,
+            "bbox": [
+                475.0,
+                63.0,
+                657.0,
+                656.0
+            ],
+            "area": 430992.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 5,
+            "image_id": 3,
+            "category_id": 3,
+            "bbox": [
+                351.0,
+                286.0,
+                598.0,
+                688.0
+            ],
+            "area": 411424.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 6,
+            "image_id": 4,
+            "category_id": 3,
+            "bbox": [
+                350.0,
+                180.0,
+                136.0,
+                243.0
+            ],
+            "area": 33048.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 7,
+            "image_id": 4,
+            "category_id": 3,
+            "bbox": [
+                468.0,
+                195.0,
+                167.0,
+                239.0
+            ],
+            "area": 39913.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 8,
+            "image_id": 4,
+            "category_id": 3,
+            "bbox": [
+                524.0,
+                171.0,
+                149.0,
+                221.0
+            ],
+            "area": 32929.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 9,
+            "image_id": 4,
+            "category_id": 3,
+            "bbox": [
+                724.0,
+                209.0,
+                299.0,
+                302.0
+            ],
+            "area": 90298.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 10,
+            "image_id": 5,
+            "category_id": 3,
+            "bbox": [
+                1370.0,
+                977.0,
+                1294.0,
+                2113.0
+            ],
+            "area": 2734222.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 11,
+            "image_id": 5,
+            "category_id": 3,
+            "bbox": [
+                2627.0,
+                849.0,
+                1240.0,
+                2282.0
+            ],
+            "area": 2829680.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 12,
+            "image_id": 6,
+            "category_id": 3,
+            "bbox": [
+                134.0,
+                106.0,
+                165.0,
+                303.0
+            ],
+            "area": 49995.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 13,
+            "image_id": 6,
+            "category_id": 3,
+            "bbox": [
+                293.0,
+                113.0,
+                167.0,
+                304.0
+            ],
+            "area": 50768.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 14,
+            "image_id": 6,
+            "category_id": 3,
+            "bbox": [
+                438.0,
+                97.0,
+                151.0,
+                301.0
+            ],
+            "area": 45451.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 15,
+            "image_id": 7,
+            "category_id": 1,
+            "bbox": [
+                208.0,
+                241.0,
+                214.0,
+                228.0
+            ],
+            "area": 48792.0,
+            "iscrowd": 0
+        },
+        {
+            "id": 16,
+            "image_id": 7,
+            "category_id": 4,
+            "bbox": [
+                95.0,
+                0.0,
+                144.0,
+                264.0
+            ],
+            "area": 38016.0,
+            "iscrowd": 0
+        }
+    ],
+    "categories": [
+        {
+            "id": 1,
+            "name": "Book_Custom",
+            "supercategory": "default"
+        },
+        {
+            "id": 2,
+            "name": "Bottle_Custom",
+            "supercategory": "default"
+        },
+        {
+            "id": 3,
+            "name": "DOGO!",
+            "supercategory": "default"
+        },
+        {
+            "id": 4,
+            "name": "plant_thing",
+            "supercategory": "default"
+        }
+    ]
+}

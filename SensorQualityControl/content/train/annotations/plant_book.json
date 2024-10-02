@@ -1,0 +1,46 @@
+{
+  "version": "5.5.0",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "Book_Custom",
+      "points": [
+        [
+          208.0,
+          241.0
+        ],
+        [
+          422.0,
+          469.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAANcAAADlCAAAAADlpD3PAAAFOUlEQVR4nOWdy5raMAxGFb6+/yunCwYIYCeSdf2FFm1nUdtHRzYZxyEbecZGRLtrD2c9ezeeQebJ9Wo7nsyR663paDI/rs+WY8luYT25zuS43kYNByqL80Whyry4xghxYE49nTUbUo2hdXiPLcKaTx+Xrbo7S/BFFDDRXLgYo/YG82if2aZrLSbVIZHz+uHQtqRJN2f2XMIWncjSucgHLXF+PcNjnlXgyp7kng1a12IJX2Sf30rtWToz9qVKk2WObX3pW7NyVmV+PcIqz9W4rK4aTblshmTSSs25qp9l5eqQiCwyZOjL+KNQ56ymL33YJdnh4lWhrLQvRarMsuy0WbGqrLQvWk+XVZo995ZWnBn5irj9LorqdUhES9eMNlzu2+3iDspdZM5DNM0sfAXdhRR1YzCmwLvGfGUQ68Yz+CnUc4Wey2B3huWLD6bOduwxGiLizTKtrwQsVp/KcWVgETGUoc0vbui4snRdd6ziSsO6jn+K/5uKde98Os80Yyuha0KmqMMSWLNRrA+uBhbRWFkHLhqgLY+uFBZ9kbX5XN5Of1xtpkQclS2OryIWHcna1CERHTfklhJf1BYRPZWt+ErB4m7Z/ClbGGNlW0R0T0Gv+XWPbVvhKq+LiLaWvohoE3Mh6KKe84tInH4QW1JfMFh71zoUccHo6rpu7CIuIF0SLhysvWsdSrigdPG5sLB+vg7BdHG5cLD+ol0divZt4HTxuICwHttWHC5ArH7z6y8YXEC6XtHLl+S+A5Cuw153L1+vuOQC0nWMKy4krOMtlwsuVKwLLiSs9+izbrzf+DvlwtV1ygWF1fVcykeccCHrOuGCxvq9OsTWNeWCwhpEizocnMWZcKHrmnBhYY2OTjWow+GJsCEXlq5hjLiwsMYH+BrU4TAGXB10/ZCvFrrQfU1P/X5xYemaxicXFtb8kPYHFxbWSbxzgWGdnKkHXzem8cbVR9cbVyOsX6jDTrp+wFcrXS8uMKyrQK3Dq8fcHlzNdD240LB+/PtS2um6c/XDal2HDXV19tVRV2NfLXXh+WJ+/8ENTRcz0Hxxv67ilvN6ZPe4Jb33eTHYg0WrQ27csl7UvRSy7+8FAmPH9vZX8RAI2Ab/qhqSunqtG72q8bAeVgdb/p726mCSMPp6vYCQZf3jc7mNsoGgms6EGR9cR5V0Jh1U4+vDrygoTDykoa+CYNKYLRK1Fg95omfzawd3dualjLOFHCOshyulc+GkhDKH939VmGVLY7iqw3ywtRFczi/QhZGxbuSCLfbOWQ8RjTEXvLR10fn9lXDK+CJKf9v3V/CvNzKUrfcpuI6CWvFF14dAYLLr3mAwRXc5L/LkhSaL4t9TQGbZwu9fUWCqflZ+r4wBS3gfPUAtLu4DlAcr+54sZebW9218lWlbV+xHlZ5lqn02PzB1y9pZ4jPL9AnT7otWLUb9fq8DmEGTBvvYJY3ZzA/bWWaRKJv7DvWUmWXaTplJkszuE5kps2nI7v5XrRXf8r6eCZhRdkzvVxYyZnsfVg9mlRrj+8tlJpnDdaumSbO0OJwHUIzNzrbHOYcKtei1S7HUrmFCvM6lZDtz3FUSN22ZC8dzRKnKPM9HCcFM8+B67ivRmPftLH77tknwv03H7MHYrf/5w5xiDDhXyQKzpo84L5pxkR9zDvYSzJw86HxvuLKwc8unYPbUkae5pn05yIw8Zx5ZjLHn58dgHrjBzwWEKQt/3uEbzAU1/jmOGGUZz6fsJz9ZRcpzNwHGsg6QP/t1Ysx7YOjes5e6vOe/9ucfHvEfBLHHbvoRO+EAAAAASUVORK5CYII="
+    },
+    {
+      "label": "plant_thing",
+      "points": [
+        [
+          95.0,
+          0.0
+        ],
+        [
+          239.0,
+          264.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAAJEAAAEJCAAAAACx8ZplAAAEU0lEQVR4nO2dybajMAxEDaf//5fpRV4GwKDSaCVWbXpIbK5LsmwIIUtrS7vSdvkKpkXSy0r3GKz19rAmSMxObj0agrQSb48PHOHRACSSyAKJ1QVNFI0EEAUHDiGKRVq1dRkTY0yQR1KTRKPFiPTCxwQSBWZSlEe4UKI4k2CPtEhw+1W9LbMWnkdRcVvxqiFA+uwabc6ZazEufe/sb61JTBJMm1XWTCJwPEmjlqok8TzSzTasddKopdKDCE4kdth2PUOts3qUabZxPdKFDRE7aqoCgDR+EuUJW9rMZsg7bC+iNGETRI1pEneokjzy3d2+ibJcJPnwCEdyNSn37HcyyfJTiCHaEUVkEtly71GGMpk8ak4m8TqVeuRXko5E/plEjeXk0fDkFmc2J2ysUZ6JRpuUfva3BpvkNdt6HjnHjRiKImpOJnWJhiZ3TGZzhtgnwnrwCZvKIyHSfbMLooGZdOXROCRdZqNhW27/ib4IHQ2wst/PdcOb4xog3XVx1VJ7P5RorLethSG97RNsetH+H9iSJ7xQLSco9S1aHZO4hXPfhb1H/EK+7JiIekTP7iOAaGX5bERVSG7t1i91ZM0O/8jUeH9kcM2EJuKYZLFjAjwikKz2bc9+kKjFIkF5FLpZwjIbXOGVbj2ag3Mt8PI7OvsRJJuEgutRWC7hFXLTbc5gcWp2zBVB1ioSEjneuuaOtLBX2gsky0Tirv03LhlhsXcjfSRDk/j7I+9cEuzYukh2Jqk36sbaZLtax8Atwn22Zy6JA+AWOfG5iJtN8rMjLyT3W66iO3VgUndpzqQ+yzZPp8HV/6zN7kqElVlf8amoVCYmCVdaVxURLUsim9n22x7ZqIhomRKZpPaPe2SiIqJlS2SR2sk82tIRNXMiZdi2NoFHBrIm0s+23/dIryK61dZaMqLWWi6ixzzNRPRQEdEyJ5IX7b+WE3iklj3R1mShe7bx8UhzldSBSLkhmSGPtPIg0oVtDo90Jk3ikUpFRMuHSJPaTh4pkGaJmkbzEMkTyc0jMZJn1FhQrzf7fKdmdwimPD2S7bazzLW3o1mI3ioiWmlm/0uuHuFIH++cK2oy5SBifMfP8EionD0SPvk0l4qIljfRzXeDLjSfRzFP0WOKRtq9IyJqMU+tYolA2r/8Lc9kMRcDKcHsP9BGEeEmhXl0iXR8IS5qqEuBedRHOv1vZGZjLiWYaweFEkEmDffodElnONFJsxMhiTS7R4jGEx0n23iio2KJOM+qz6MiopWA6JBcCYgOKiJaRUSriGiFEn33b/nEKOHZUcJ9NoA0eR41xKTyiFYR0SoiWkVEq4hoFRGtaCLWb4tFiPOreSFKd0WrzkWMVES0Ionqd45pfc3ntIPuicA1nmjcPRGoiojWcKKh941gGk10rpqjic4aTNRZWGa/enxUD7HyiNZQom5ejfwUop/oFbUPXdSC6T3aun/daXqP3s5crijhHm27Pzr6D+iZmemej8s1AAAAAElFTkSuQmCC"
+    }
+  ],
+  "imagePath": "..\\images\\plant_book.png",
+  "imageData": null,
+  "imageHeight": 500,
+  "imageWidth": 500
+}
