@@ -1,0 +1,7 @@
+imutils 
+matplotlib 
+numpy 
+opencv_contrib_python 
+Pillow 
+pytesseract 
+ultralytics 
