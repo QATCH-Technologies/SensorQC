@@ -10,6 +10,7 @@ from PIL import Image
 import numpy as np
 
 # Define boundaries and movement deltas
+BATCH_NAME = ""
 SENSOR_HEIGHT = round(10.85)
 SENSOR_WIDTH = round(11.35)
 X_MIN = 0
@@ -123,13 +124,28 @@ if __name__ == "__main__":
     input_folder = get_input_folder()  # Get folder name from the user
     output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder)  # Process video and capture images
-    stitch(input_folder, output_folder, 1, 1)
-
-    image = cv2.imread(output_folder)
+    stitch(input_folder, output_folder + "/stitched_image.jpg", 1, 1)
+    # Load the image from the output folder
+    image_path = os.path.join(
+        output_folder, "stitched_image.jpg"
+    )  # Assuming the image is saved as "stitched_image.jpg"
+    image = cv2.imread(image_path)
+    # Convert to grayscale and resize
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
     resized = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+
+    # Convert back to RGB for PIL
     preprocessed_pil = Image.fromarray(cv2.cvtColor(resized, cv2.COLOR_GRAY2RGB))
 
+    # Perform OCR
     reader = easyocr.Reader(["en"])
     result = reader.readtext(np.array(preprocessed_pil))
+
+    # Save the OCR result image
+    ocr_output_path = os.path.join(
+        output_folder, f"{BATCH_NAME}_result_{len(result)}.jpg"
+    )
+    preprocessed_pil.save(ocr_output_path)
+
+    print(f"OCR result: {result}")
+    print(f"OCR result image saved at: {ocr_output_path}")
