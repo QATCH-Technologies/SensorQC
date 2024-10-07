@@ -1,11 +1,13 @@
 import keyboard
 import serial
 import time
+import cv2
+import numpy as np
 
 # Replace with your G-code machine's COM port and baud rate
 ser = serial.Serial()
 ser.port = "COM3"
-ser.baudrate = 115200  # Set the appropriate baud rate
+ser.baudrate = 9600  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
 
 # Initial positions
@@ -70,6 +72,41 @@ def log_position():
     print(f"Final Position - X: {current_x}, Y: {current_y}, Z: {current_z}")
 
 
+def display_camera_feed():
+    """Display the live camera feed with crosshairs."""
+    cap = cv2.VideoCapture(0)  # Change the index if necessary
+
+    while True:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame")
+            break
+
+        # Get the dimensions of the frame
+        height, width, _ = frame.shape
+
+        # Calculate the center of the frame
+        center_x, center_y = width // 2, height // 2
+
+        # Draw the crosshairs
+        cv2.line(
+            frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 0, 255), 2
+        )  # Horizontal line
+        cv2.line(
+            frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 0, 255), 2
+        )  # Vertical line
+
+        # Display the resulting frame
+        cv2.imshow("Camera Feed", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
 def main():
     print("Use arrow keys to move the machine.")
     print("Press 'Enter' to log the current position.")
@@ -77,6 +114,12 @@ def main():
     ser.open()
     init_params()
     move_to_initial_position()  # Move to (100, 100) initially
+
+    # Start the camera feed in a separate thread
+    from threading import Thread
+
+    camera_thread = Thread(target=display_camera_feed)
+    camera_thread.start()
 
     while True:
         if keyboard.is_pressed("up"):
@@ -105,6 +148,7 @@ def main():
             break
 
     ser.close()
+    camera_thread.join()  # Wait for the camera thread to finish
 
 
 if __name__ == "__main__":

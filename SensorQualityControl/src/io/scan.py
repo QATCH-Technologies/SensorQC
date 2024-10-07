@@ -2,20 +2,38 @@ import serial
 import cv2
 import time
 import os
-import subprocess
+import signal
+import sys
 from image_stitcher import stitch
+import easyocr
+from PIL import Image
+import numpy as np
 
 # Define boundaries and movement deltas
-X_MIN, X_MAX = 0, 10
-Y_MIN, Y_MAX = 0, 10
+SENSOR_HEIGHT = round(10.85)
+SENSOR_WIDTH = round(11.35)
+X_MIN = 0
+X_MAX = X_MIN + SENSOR_WIDTH
+Y_MIN = 0
+Y_MAX = Y_MIN + SENSOR_HEIGHT
 Z_FIXED = 10
 FEED_RATE = 200
-X_DELTA, Y_DELTA = 5, 5
-
+X_DELTA, Y_DELTA = 1, 1
+SCALE_FACTOR = 1
 ser = serial.Serial()
-ser.port = "COM3"
-ser.baudrate = 115200  # Set the appropriate baud rate
+ser.port = "COM1"
+ser.baudrate = 9600  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
+
+
+def signal_handler(sig, frame):
+    print("Terminating the process...")
+    ser.close()  # Close the serial port
+    sys.exit(0)  # Exit the program
+
+
+# Register the signal handler
+signal.signal(signal.SIGINT, signal_handler)
 
 
 def control_machine(x, y):
@@ -23,6 +41,7 @@ def control_machine(x, y):
     gcode_command = f"G01 X{x:.2f} Y{y:.2f} Z{Z_FIXED:.2f} F{FEED_RATE:.2f}\n"
     print(gcode_command)
     ser.write(gcode_command.encode())
+    ser.reset_output_buffer()
     time.sleep(0.5)  # Delay to allow movement to complete
 
 
@@ -34,7 +53,7 @@ def capture_image(frame, x, y, folder):
 
 def map_to_machine_axis(coordinate):
     # Map the camera coordinates to G-code workspace
-    return coordinate * 0.1  # Example scaling factor (adjust as needed)
+    return coordinate * SCALE_FACTOR
 
 
 def init_params():
@@ -59,19 +78,21 @@ def process_video(folder):
             gcode_y = map_to_machine_axis(y)
             control_machine(gcode_x, gcode_y)
 
-            # Capture an image
             ret, frame = cap.read()
             if ret:
                 capture_image(frame, x, y, folder)
+
+                # # Display the live video feed
+                # cv2.imshow("Live Video Feed", frame)
+
+                # # Break the loop if 'q' is pressed
+                # if cv2.waitKey(1) & 0xFF == ord("q"):
+                #     break
             else:
                 print("Failed to capture image.")
 
-            # Optional: Display the current position and captured image
-            # cv2.imshow("Video Feed", frame)
-            # cv2.waitKey(1)  # Brief pause to update display
     ser.close()
     cap.release()
-    cv2.destroyAllWindows()
 
 
 def get_input_folder():
@@ -103,3 +124,12 @@ if __name__ == "__main__":
     output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder)  # Process video and capture images
     stitch(input_folder, output_folder, 1, 1)
+
+    image = cv2.imread(output_folder)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    resized = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+    preprocessed_pil = Image.fromarray(cv2.cvtColor(resized, cv2.COLOR_GRAY2RGB))
+
+    reader = easyocr.Reader(["en"])
+    result = reader.readtext(np.array(preprocessed_pil))
