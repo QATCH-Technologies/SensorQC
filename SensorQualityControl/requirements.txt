@@ -3,5 +3,7 @@ matplotlib
 numpy 
 opencv_contrib_python 
 Pillow 
-pytesseract 
+easyocr 
 ultralytics 
+pyserial
+keyboard

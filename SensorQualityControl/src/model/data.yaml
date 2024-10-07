@@ -1,4 +1,9 @@
+path: C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\train\annotations_coco.json  # dataset root dir
 train: /content/train/images
 val: /content/test/images
 nc: 4
-names: ['Book_Custom', 'Bottle_Custom', 'DOGO!', 'plant_thing']  # List of class names
+names:
+  0: Book_Custom
+  1: Bottle_Custom
+  2: DOGO!
+  3: plant_thing  # List of class names
