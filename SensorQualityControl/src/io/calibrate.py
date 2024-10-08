@@ -6,8 +6,8 @@ import numpy as np
 
 # Replace with your G-code machine's COM port and baud rate
 ser = serial.Serial()
-ser.port = "COM1"
-ser.baudrate = 9600  # Set the appropriate baud rate
+ser.port = "COM4"
+ser.baudrate = 115200  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
 
 # Initial positions
@@ -19,7 +19,9 @@ current_z = 0
 def send_gcode(command):
     """Send a G-code command to the machine."""
     ser.write((command + "\n").encode())
-    time.sleep(0.1)  # Wait for the command to be processed
+    # time.sleep()  # Wait for the command to be processed
+    response = ser.readline().decode().strip()
+    print(response)
 
 
 def move_x(distance):
@@ -54,11 +56,11 @@ def init_params():
     units_selection = "G21"  # Set units to millimeters
     send_gcode(units_selection)
 
-    positioning_relative = "G91"  # Set to relative positioning
+    positioning_relative = "G90"  # Set to relative positioning
     send_gcode(positioning_relative)
 
-    xy_plane = "G17"  # Select XY plane
-    send_gcode(xy_plane)
+    # xy_plane = "G17"  # Select XY plane
+    # send_gcode(xy_plane)
 
 
 def move_to_initial_position():
@@ -74,7 +76,7 @@ def log_position():
 
 def display_camera_feed():
     """Display the live camera feed with crosshairs."""
-    cap = cv2.VideoCapture(0)  # Change the index if necessary
+    cap = cv2.VideoCapture(1)  # Change the index if necessary
 
     while True:
         # Capture frame-by-frame
@@ -113,7 +115,7 @@ def main():
     print("Press 'q' to quit.")
     ser.open()
     init_params()
-    move_to_initial_position()  # Move to (100, 100) initially
+    # move_to_initial_position()  # Move to (100, 100) initially
 
     # Start the camera feed in a separate thread
     from threading import Thread

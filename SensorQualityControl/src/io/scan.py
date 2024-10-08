@@ -22,8 +22,8 @@ FEED_RATE = 200
 X_DELTA, Y_DELTA = 1, 1
 SCALE_FACTOR = 1
 ser = serial.Serial()
-ser.port = "COM1"
-ser.baudrate = 9600  # Set the appropriate baud rate
+ser.port = "COM4"
+ser.baudrate = 115200  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
 
 
@@ -62,14 +62,14 @@ def init_params():
     ser.write(units_selection.encode())
     positioning_absolute = f"G90"
     ser.write(positioning_absolute.encode())
-    xy_plane = f"G17"
-    ser.write(xy_plane.encode())
+    # xy_plane = f"G17"
+    # ser.write(xy_plane.encode())
 
 
 def process_video(folder):
     ser.open()
     # Open video feed from the camera
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     init_params()
     # Loop through the defined box
     for x in range(X_MIN, X_MAX + 1, X_DELTA):
