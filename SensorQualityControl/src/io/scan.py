@@ -76,7 +76,7 @@ def process_video(folder):
     for x in range(X_MIN, X_MAX + 1, X_DELTA):
         for y in range(Y_MIN, Y_MAX + 1, Y_DELTA):
             # Move the machine
-            gcode_x = map_to_machine_axis(-1 * x)
+            gcode_x = map_to_machine_axis(x)
             gcode_y = map_to_machine_axis(y)
             control_machine(gcode_x, gcode_y)
 

@@ -4,6 +4,8 @@ import time
 import cv2
 import numpy as np
 
+STEP = 10
+SCALE_FACTOR = 0.1
 # Replace with your G-code machine's COM port and baud rate
 ser = serial.Serial()
 ser.port = "COM4"
@@ -14,6 +16,11 @@ time.sleep(2)  # Wait for connection to establish
 current_x = 0
 current_y = 0
 current_z = 0
+
+
+def map_to_machine_axis(coordinate):
+    # Map the camera coordinates to G-code workspace
+    return coordinate * SCALE_FACTOR
 
 
 def send_gcode(command):
@@ -65,8 +72,8 @@ def init_params():
 
 def move_to_initial_position():
     """Move the machine to the initial position (100, 100)."""
-    move_x(100)  # Move X to 100
-    move_y(100)  # Move Y to 100
+    move_x(0)  # Move X to 100
+    move_y(0)  # Move Y to 100
 
 
 def log_position():
@@ -120,7 +127,7 @@ def main():
     print("Press 'q' to quit.")
     ser.open()
     init_params()
-    # move_to_initial_position()  # Move to (100, 100) initially
+    move_to_initial_position()  # Move to (100, 100) initially
 
     # Start the camera feed in a separate thread
     from threading import Thread
@@ -130,22 +137,22 @@ def main():
 
     while True:
         if keyboard.is_pressed("up"):
-            move_y(1)  # Adjust this value for speed
+            move_y(STEP)  # Adjust this value for speed
             time.sleep(0.5)
         elif keyboard.is_pressed("down"):
-            move_y(-1)
+            move_y(-STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("left"):
-            move_x(-1)
+            move_x(-STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("right"):
-            move_x(1)
+            move_x(STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("z"):
-            move_z(1)  # Move up
+            move_z(STEP)  # Move up
             time.sleep(0.5)
         elif keyboard.is_pressed("x"):
-            move_z(-1)  # Move down
+            move_z(-STEP)  # Move down
             time.sleep(0.5)
         elif keyboard.is_pressed("enter"):
             log_position()  # Log the current position

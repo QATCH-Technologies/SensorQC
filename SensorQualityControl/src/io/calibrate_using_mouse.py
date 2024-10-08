@@ -6,7 +6,7 @@ from pynput.mouse import Listener, Controller
 
 # Replace with your G-code machine's COM port and baud rate
 ser = serial.Serial()
-ser.port = "COM1"
+ser.port = "COM4"
 ser.baudrate = 115200  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
 
