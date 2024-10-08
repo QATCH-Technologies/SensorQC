@@ -20,13 +20,14 @@ Y_MAX = Y_MIN + SENSOR_HEIGHT
 Z_FIXED = 10
 FEED_RATE = 200
 X_DELTA, Y_DELTA = 1, 1
-SCALE_FACTOR = 1
+SCALE_FACTOR = 0.1
 ser = serial.Serial()
 ser.port = "COM4"
 ser.baudrate = 115200  # Set the appropriate baud rate
 time.sleep(2)  # Wait for connection to establish
 
 
+# Final Position - X: -17, Y: -9, Z: -1
 def signal_handler(sig, frame):
     print("Terminating the process...")
     ser.close()  # Close the serial port
@@ -42,7 +43,7 @@ def control_machine(x, y):
     gcode_command = f"G01 X{x:.2f} Y{y:.2f} Z{Z_FIXED:.2f} F{FEED_RATE:.2f}\n"
     print(gcode_command)
     ser.write(gcode_command.encode())
-    ser.reset_output_buffer()
+    # ser.reset_output_buffer()
     time.sleep(0.5)  # Delay to allow movement to complete
 
 
@@ -60,7 +61,7 @@ def map_to_machine_axis(coordinate):
 def init_params():
     units_selection = f"G21"
     ser.write(units_selection.encode())
-    positioning_absolute = f"G90"
+    positioning_absolute = f"G91"
     ser.write(positioning_absolute.encode())
     # xy_plane = f"G17"
     # ser.write(xy_plane.encode())
@@ -75,7 +76,7 @@ def process_video(folder):
     for x in range(X_MIN, X_MAX + 1, X_DELTA):
         for y in range(Y_MIN, Y_MAX + 1, Y_DELTA):
             # Move the machine
-            gcode_x = map_to_machine_axis(x)
+            gcode_x = map_to_machine_axis(-1 * x)
             gcode_y = map_to_machine_axis(y)
             control_machine(gcode_x, gcode_y)
 

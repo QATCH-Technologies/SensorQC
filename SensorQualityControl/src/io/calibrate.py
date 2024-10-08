@@ -56,7 +56,7 @@ def init_params():
     units_selection = "G21"  # Set units to millimeters
     send_gcode(units_selection)
 
-    positioning_relative = "G90"  # Set to relative positioning
+    positioning_relative = "G91"  # Set to relative positioning
     send_gcode(positioning_relative)
 
     # xy_plane = "G17"  # Select XY plane
@@ -75,8 +75,13 @@ def log_position():
 
 
 def display_camera_feed():
-    """Display the live camera feed with crosshairs."""
+    """Display the live camera feed with crosshairs in full screen."""
     cap = cv2.VideoCapture(1)  # Change the index if necessary
+
+    # Create a named window for the camera feed
+    cv2.namedWindow("Camera Feed", cv2.WND_PROP_FULLSCREEN)
+    # Set the window to fullscreen
+    cv2.setWindowProperty("Camera Feed", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     while True:
         # Capture frame-by-frame
@@ -99,7 +104,7 @@ def display_camera_feed():
             frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 0, 255), 2
         )  # Vertical line
 
-        # Display the resulting frame
+        # Display the resulting frame in full screen
         cv2.imshow("Camera Feed", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -126,22 +131,22 @@ def main():
     while True:
         if keyboard.is_pressed("up"):
             move_y(1)  # Adjust this value for speed
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("down"):
             move_y(-1)
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("left"):
             move_x(-1)
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("right"):
             move_x(1)
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("z"):
             move_z(1)  # Move up
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("x"):
             move_z(-1)  # Move down
-            time.sleep(0.1)
+            time.sleep(0.5)
         elif keyboard.is_pressed("enter"):
             log_position()  # Log the current position
             time.sleep(0.5)  # Prevent logging multiple times in quick succession
