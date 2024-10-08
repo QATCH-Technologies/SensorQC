@@ -4,14 +4,16 @@ import time
 import os
 import signal
 import sys
+import csv  # Import the CSV module
 from image_stitcher import stitch
 import easyocr
 from PIL import Image
 import numpy as np
+from tqdm import tqdm
 
 # Define boundaries and movement deltas
-INITIAL_POSITION = (114.50, 139.60, 63.82, 0.00)
-FINAL_POSITION = (125.00, 128.60, 63.82, 0.00)
+INITIAL_POSITION = (110.30, 131.80, 51.81, 0.00)
+FINAL_POSITION = (121.30, 121.00, 51.81, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
@@ -21,7 +23,7 @@ Y_MAX = INITIAL_POSITION[1]
 Y_MIN = FINAL_POSITION[1]
 Z_FIXED = INITIAL_POSITION[2]
 FEED_RATE = 200
-X_DELTA, Y_DELTA = 0.2, -0.2
+X_DELTA, Y_DELTA = 0.5, -0.5
 SCALE_FACTOR = 1
 ser = serial.Serial()
 ser.port = "COM4"
@@ -43,10 +45,8 @@ signal.signal(signal.SIGINT, signal_handler)
 def control_machine(x, y):
     # Send G-code command to move the machine head to the specified coordinates
     gcode_command = f"G01 X{x:.2f} Y{y:.2f} Z{Z_FIXED:.2f} F{FEED_RATE:.2f}\n"
-    print(gcode_command)
     ser.write(gcode_command.encode())
-    # ser.reset_output_buffer()
-    time.sleep(0.5)  # Delay to allow movement to complete
+    time.sleep(1)  # Delay to allow movement to complete
 
 
 def capture_image(frame, tile_num, folder):
@@ -74,7 +74,6 @@ def init_params():
     # Wait for the print head to reach the initial position
     while True:
         ser.write(b"M114\n")  # G-code for requesting the position
-
         time.sleep(0.5)
 
         response = ser.readline().decode("utf-8").strip()
@@ -94,9 +93,14 @@ def process_video(folder):
     cap = cv2.VideoCapture(1)
     init_params()
     tile = 1
-    for x in np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA):
-        for y in np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA):
-            print(f"x:{x}, y:{y}")
+
+    # Prepare a list to store tile locations
+    tile_locations = []
+
+    for row_index, x in tqdm(
+        enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
+    ):
+        for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
             # Move the machine
             gcode_x = map_to_machine_axis(x)
             gcode_y = map_to_machine_axis(y)
@@ -105,10 +109,22 @@ def process_video(folder):
             ret, frame = cap.read()
             if ret:
                 capture_image(frame, tile, folder)
+                # Append the tile number, row index, and column index to the list
+                tile_locations.append([tile, row_index, col_index])
                 tile += 1
             else:
                 print("Failed to capture image.")
-        time.sleep(1)
+        time.sleep(3)
+
+    # Write the tile locations to a CSV file
+    csv_file_path = os.path.join(folder, "tile_locations.csv")
+    with open(csv_file_path, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(
+            ["Tile Number", "Row Index", "Column Index"]
+        )  # Write the header
+        writer.writerows(tile_locations)  # Write the data
+
     ser.close()
     cap.release()
 
@@ -151,14 +167,14 @@ if __name__ == "__main__":
         pattern="raster",  # snake or raster
     )
     mosaic.align(limit=110)
-
     mosaic.build_out(from_placed=True)
-
     mosaic.show()
+
     image_path = os.path.join(
         output_folder, "stitched_image.jpg"
     )  # Assuming the image is saved as "stitched_image.jpg"
     image = cv2.imread(image_path)
+
     # Convert to grayscale and resize
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     resized = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)

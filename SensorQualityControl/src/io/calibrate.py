@@ -3,6 +3,8 @@ import serial
 import time
 import cv2
 import numpy as np
+from pynput.mouse import Listener  # Use pynput for scroll detection
+from datetime import datetime
 
 INITIAL_POSITION = (114.00, 139.10, 59.75, 0.00)
 X = INITIAL_POSITION[0]
@@ -10,124 +12,90 @@ Y = INITIAL_POSITION[1]
 Z = INITIAL_POSITION[2]
 FEED_RATE = 800
 
-STEP = 0.5
+STEP = 0.1  # Fine movement step
+LARGE_STEP = 2.0  # Large movement step
 SCALE_FACTOR = 0.1
-FOCUS_STEP = 0.01
-# Replace with your G-code machine's COM port and baud rate
+ZOOM_STEP = 1.0  # Amount to zoom per scroll step
+FINE_ZOOM_STEP = 0.1  # Fine zoom step for z key
 ser = serial.Serial()
 ser.port = "COM4"
-ser.baudrate = 115200  # Set the appropriate baud rate
-time.sleep(2)  # Wait for connection to establish
+ser.baudrate = 115200
+time.sleep(2)
 
-# Initial positions
 current_x = 0
 current_y = 0
 current_z = 0
 
 
 def map_to_machine_axis(coordinate):
-    # Map the camera coordinates to G-code workspace
     return coordinate * SCALE_FACTOR
 
 
 def get_abs_position():
-    ser.write(b"M114\n")  # G-code for requesting the position
-
+    ser.write(b"M114\n")
     time.sleep(0.5)
-
     response = ser.readline().decode("utf-8").strip()
     print(response)
+    # Get the current timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Save the response to a new file with a timestamp
+    with open("gcode_position.txt", "a") as file:  # Open in append mode
+        file.write(f"{timestamp}: {response}\n")  # Write the timestamp and response
 
 
 def send_gcode(command):
-    """Send a G-code command to the machine."""
     ser.write((command + "\n").encode())
-    # time.sleep()  # Wait for the command to be processed
     response = ser.readline().decode().strip()
     print(response)
 
 
 def move_x(distance):
-    """Move the machine along the X axis."""
     global current_x
     g_code = f"G0 X{distance}"
-    print(g_code)
     send_gcode(g_code)
-    current_x += distance  # Update the current position
+    current_x += distance
 
 
 def move_y(distance):
-    """Move the machine along the Y axis."""
     global current_y
     g_code = f"G0 Y{distance}"
-    print(g_code)
     send_gcode(g_code)
-    current_y += distance  # Update the current position
+    current_y += distance
 
 
 def move_z(distance):
-    """Move the machine along the Z axis."""
     global current_z
     g_code = f"G0 Z{distance}"
-    print(g_code)
     send_gcode(g_code)
-    current_z += distance  # Update the current position
+    current_z += distance
 
 
 def init_params():
-    """Initialize G-code parameters."""
-    units_selection = "G21"  # Set units to millimeters
-    send_gcode(units_selection)
-
-    positioning_relative = "G91"  # Set to relative positioning
-    send_gcode(positioning_relative)
-
-    # xy_plane = "G17"  # Select XY plane
-    # send_gcode(xy_plane)
-
-
-def move_to_initial_position():
-    """Move the machine to the initial position (100, 100)."""
-    move_x(0)  # Move X to 100
-    move_y(0)  # Move Y to 100
-
-
-def log_position():
-    """Log the current position of the machine."""
-    print(f"Final Position - X: {current_x}, Y: {current_y}, Z: {current_z}")
+    send_gcode("G21")
+    send_gcode("G91")
 
 
 def display_camera_feed():
-    """Display the live camera feed with crosshairs in full screen."""
-    cap = cv2.VideoCapture(1)  # Change the index if necessary
-
-    # Create a named window for the camera feed
+    cap = cv2.VideoCapture(1)
     cv2.namedWindow("Camera Feed", cv2.WND_PROP_FULLSCREEN)
-    # Set the window to fullscreen
     cv2.setWindowProperty("Camera Feed", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     while True:
-        # Capture frame-by-frame
         ret, frame = cap.read()
         if not ret:
             print("Failed to grab frame")
             break
 
-        # Get the dimensions of the frame
         height, width, _ = frame.shape
-
-        # Calculate the center of the frame
         center_x, center_y = width // 2, height // 2
-
-        # Draw the crosshairs
         cv2.line(
             frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 0, 255), 2
-        )  # Horizontal line
+        )
         cv2.line(
             frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 0, 255), 2
-        )  # Vertical line
+        )
 
-        # Display the resulting frame in full screen
         cv2.imshow("Camera Feed", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -137,29 +105,49 @@ def display_camera_feed():
     cv2.destroyAllWindows()
 
 
+def on_scroll(x, y, dx, dy):
+    """Handle scroll wheel zoom (Z-axis movement)."""
+    if dy > 0:  # Scroll up
+        move_z(ZOOM_STEP)
+    elif dy < 0:  # Scroll down
+        move_z(-ZOOM_STEP)
+
+
 def main():
-    print("Use arrow keys to move the machine.")
+    print("Use WASD keys for large movements (W: up, A: left, S: down, D: right).")
+    print("Use arrow keys for fine movements (↑: up, ↓: down, ←: left, →: right).")
+    print("Scroll to zoom (Z-axis).")
+    print("Press 'z' to zoom in (fine).")
+    print("Press 'x' to zoom out (fine).")
     print("Press 'Enter' to log the current position.")
     print("Press 'q' to quit.")
     ser.open()
     init_params()
-    # move_to_initial_position()  # Move to (100, 100) initially
 
-    # Start the camera feed in a separate thread
     from threading import Thread
 
     camera_thread = Thread(target=display_camera_feed)
     camera_thread.start()
-    # positioning_absolute = "G90"  # Set positioning to absolute
-    # ser.write(positioning_absolute.encode() + b"\n")
 
-    # x, y, z, e = INITIAL_POSITION
-    # movement_command = f"G01 X{x} Y{y} Z{z} E{e}\n F{FEED_RATE:.2f}"
-    # ser.write(movement_command.encode())
+    # Start listening for scroll events using pynput
+    scroll_listener = Listener(on_scroll=on_scroll)
+    scroll_listener.start()
 
     while True:
-        if keyboard.is_pressed("up"):
-            move_y(STEP)  # Adjust this value for speed
+        if keyboard.is_pressed("w"):
+            move_y(LARGE_STEP)
+            time.sleep(0.5)
+        elif keyboard.is_pressed("s"):
+            move_y(-LARGE_STEP)
+            time.sleep(0.5)
+        elif keyboard.is_pressed("a"):
+            move_x(-LARGE_STEP)
+            time.sleep(0.5)
+        elif keyboard.is_pressed("d"):
+            move_x(LARGE_STEP)
+            time.sleep(0.5)
+        elif keyboard.is_pressed("up"):
+            move_y(STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("down"):
             move_y(-STEP)
@@ -170,21 +158,22 @@ def main():
         elif keyboard.is_pressed("right"):
             move_x(STEP)
             time.sleep(0.5)
-        elif keyboard.is_pressed("z"):
-            move_z(FOCUS_STEP)  # Move up
+        elif keyboard.is_pressed("z"):  # Fine zoom in
+            move_z(FINE_ZOOM_STEP)
             time.sleep(0.5)
-        elif keyboard.is_pressed("x"):
-            move_z(-FOCUS_STEP)  # Move down
+        elif keyboard.is_pressed("x"):  # Fine zoom out
+            move_z(-FINE_ZOOM_STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("enter"):
-            get_abs_position()  # Log the current position
-            time.sleep(0.5)  # Prevent logging multiple times in quick succession
+            get_abs_position()
+            time.sleep(0.5)
         elif keyboard.is_pressed("q"):
             print("Exiting...")
             break
 
     ser.close()
-    camera_thread.join()  # Wait for the camera thread to finish
+    camera_thread.join()
+    scroll_listener.stop()
 
 
 if __name__ == "__main__":
@@ -193,4 +182,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Program interrupted.")
     finally:
-        ser.close()  # Ensure the serial connection is closed
+        ser.close()
