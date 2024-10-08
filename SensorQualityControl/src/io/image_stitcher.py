@@ -112,3 +112,11 @@ def stitch(input_path, output_path, crop=0, show=0):
     # being detected
     else:
         print("[INFO] image stitching failed ({})".format(status))
+
+
+if __name__ == "__main__":
+    stitch(
+        input_path=r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\stitched_images",
+        output_path=r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\stitched_images",
+        show=1,
+    )

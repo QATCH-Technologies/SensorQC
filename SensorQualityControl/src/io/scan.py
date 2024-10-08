@@ -10,17 +10,19 @@ from PIL import Image
 import numpy as np
 
 # Define boundaries and movement deltas
+INITIAL_POSITION = (114.50, 139.60, 63.82, 0.00)
+FINAL_POSITION = (125.00, 128.60, 63.82, 0.00)
 BATCH_NAME = ""
-SENSOR_HEIGHT = round(10.85)
-SENSOR_WIDTH = round(11.35)
-X_MIN = 0
-X_MAX = X_MIN + SENSOR_WIDTH
-Y_MIN = 0
-Y_MAX = Y_MIN + SENSOR_HEIGHT
-Z_FIXED = 10
+SENSOR_HEIGHT = 10.85
+SENSOR_WIDTH = 11.35
+X_MIN = INITIAL_POSITION[0]
+X_MAX = FINAL_POSITION[0]
+Y_MAX = INITIAL_POSITION[1]
+Y_MIN = FINAL_POSITION[1]
+Z_FIXED = INITIAL_POSITION[2]
 FEED_RATE = 200
-X_DELTA, Y_DELTA = 1, 1
-SCALE_FACTOR = 0.1
+X_DELTA, Y_DELTA = 0.2, -0.2
+SCALE_FACTOR = 1
 ser = serial.Serial()
 ser.port = "COM4"
 ser.baudrate = 115200  # Set the appropriate baud rate
@@ -47,9 +49,9 @@ def control_machine(x, y):
     time.sleep(0.5)  # Delay to allow movement to complete
 
 
-def capture_image(frame, x, y, folder):
+def capture_image(frame, tile_num, folder):
     # Save the image with the coordinates in the filename
-    image_filename = os.path.join(folder, f"image_X{x:.2f}_Y{y:.2f}.jpg")
+    image_filename = os.path.join(folder, f"tile_{tile_num}.jpg")
     cv2.imwrite(image_filename, frame)
 
 
@@ -59,12 +61,31 @@ def map_to_machine_axis(coordinate):
 
 
 def init_params():
-    units_selection = f"G21"
-    ser.write(units_selection.encode())
-    positioning_absolute = f"G91"
-    ser.write(positioning_absolute.encode())
-    # xy_plane = f"G17"
-    # ser.write(xy_plane.encode())
+    units_selection = "G21"  # Set units to mm
+    ser.write(units_selection.encode() + b"\n")
+
+    positioning_absolute = "G90"  # Set positioning to absolute
+    ser.write(positioning_absolute.encode() + b"\n")
+
+    x, y, z, e = INITIAL_POSITION
+    movement_command = f"G01 X{x} Y{y} Z{z} E{e}\n F{FEED_RATE:.2f}"
+    ser.write(movement_command.encode())
+
+    # Wait for the print head to reach the initial position
+    while True:
+        ser.write(b"M114\n")  # G-code for requesting the position
+
+        time.sleep(0.5)
+
+        response = ser.readline().decode("utf-8").strip()
+        # Check for a response indicating the movement is complete
+        if (
+            f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
+        ):  # Adjust this condition based on your G-code machine's feedback
+            break
+
+    print("Print head has reached the initial position.")
+    input("Enter to continue..")
 
 
 def process_video(folder):
@@ -72,9 +93,10 @@ def process_video(folder):
     # Open video feed from the camera
     cap = cv2.VideoCapture(1)
     init_params()
-    # Loop through the defined box
-    for x in range(X_MIN, X_MAX + 1, X_DELTA):
-        for y in range(Y_MIN, Y_MAX + 1, Y_DELTA):
+    tile = 1
+    for x in np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA):
+        for y in np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA):
+            print(f"x:{x}, y:{y}")
             # Move the machine
             gcode_x = map_to_machine_axis(x)
             gcode_y = map_to_machine_axis(y)
@@ -82,17 +104,11 @@ def process_video(folder):
 
             ret, frame = cap.read()
             if ret:
-                capture_image(frame, x, y, folder)
-
-                # # Display the live video feed
-                # cv2.imshow("Live Video Feed", frame)
-
-                # # Break the loop if 'q' is pressed
-                # if cv2.waitKey(1) & 0xFF == ord("q"):
-                #     break
+                capture_image(frame, tile, folder)
+                tile += 1
             else:
                 print("Failed to capture image.")
-
+        time.sleep(1)
     ser.close()
     cap.release()
 
@@ -125,8 +141,20 @@ if __name__ == "__main__":
     input_folder = get_input_folder()  # Get folder name from the user
     output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder)  # Process video and capture images
-    stitch(input_folder, output_folder + "/stitched_image.jpg", 1, 1)
-    # Load the image from the output folder
+    from stitch2d import StructuredMosaic
+
+    mosaic = StructuredMosaic(
+        input_folder,
+        dim=21,  # number of tiles in primary axis
+        origin="upper left",  # position of first tile
+        direction="vertical",  # primary axis (i.e., the direction to traverse first)
+        pattern="raster",  # snake or raster
+    )
+    mosaic.align(limit=110)
+
+    mosaic.build_out(from_placed=True)
+
+    mosaic.show()
     image_path = os.path.join(
         output_folder, "stitched_image.jpg"
     )  # Assuming the image is saved as "stitched_image.jpg"

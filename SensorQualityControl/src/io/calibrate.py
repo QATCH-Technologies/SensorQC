@@ -4,8 +4,15 @@ import time
 import cv2
 import numpy as np
 
-STEP = 10
+INITIAL_POSITION = (114.00, 139.10, 59.75, 0.00)
+X = INITIAL_POSITION[0]
+Y = INITIAL_POSITION[1]
+Z = INITIAL_POSITION[2]
+FEED_RATE = 800
+
+STEP = 0.5
 SCALE_FACTOR = 0.1
+FOCUS_STEP = 0.01
 # Replace with your G-code machine's COM port and baud rate
 ser = serial.Serial()
 ser.port = "COM4"
@@ -21,6 +28,15 @@ current_z = 0
 def map_to_machine_axis(coordinate):
     # Map the camera coordinates to G-code workspace
     return coordinate * SCALE_FACTOR
+
+
+def get_abs_position():
+    ser.write(b"M114\n")  # G-code for requesting the position
+
+    time.sleep(0.5)
+
+    response = ser.readline().decode("utf-8").strip()
+    print(response)
 
 
 def send_gcode(command):
@@ -127,13 +143,19 @@ def main():
     print("Press 'q' to quit.")
     ser.open()
     init_params()
-    move_to_initial_position()  # Move to (100, 100) initially
+    # move_to_initial_position()  # Move to (100, 100) initially
 
     # Start the camera feed in a separate thread
     from threading import Thread
 
     camera_thread = Thread(target=display_camera_feed)
     camera_thread.start()
+    # positioning_absolute = "G90"  # Set positioning to absolute
+    # ser.write(positioning_absolute.encode() + b"\n")
+
+    # x, y, z, e = INITIAL_POSITION
+    # movement_command = f"G01 X{x} Y{y} Z{z} E{e}\n F{FEED_RATE:.2f}"
+    # ser.write(movement_command.encode())
 
     while True:
         if keyboard.is_pressed("up"):
@@ -149,13 +171,13 @@ def main():
             move_x(STEP)
             time.sleep(0.5)
         elif keyboard.is_pressed("z"):
-            move_z(STEP)  # Move up
+            move_z(FOCUS_STEP)  # Move up
             time.sleep(0.5)
         elif keyboard.is_pressed("x"):
-            move_z(-STEP)  # Move down
+            move_z(-FOCUS_STEP)  # Move down
             time.sleep(0.5)
         elif keyboard.is_pressed("enter"):
-            log_position()  # Log the current position
+            get_abs_position()  # Log the current position
             time.sleep(0.5)  # Prevent logging multiple times in quick succession
         elif keyboard.is_pressed("q"):
             print("Exiting...")
