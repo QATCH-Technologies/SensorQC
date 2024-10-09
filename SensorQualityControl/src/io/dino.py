@@ -35,6 +35,16 @@ def threaded(func):
     return wrapper
 
 
+@threaded
+def flash_leds(microscope):
+    microscope.SetLEDState(0, 0)
+    time.sleep(COMMAND_TIME)
+    microscope.SetLEDState(0, 2)
+    time.sleep(COMMAND_TIME)
+    clear_line(1)
+    print("flash_leds", end="\r")
+
+
 def custom_microtouch_function():
     """Executes when MicroTouch press event got detected"""
 
@@ -107,16 +117,6 @@ def print_deviceid(microscope):
     time.sleep(QUERY_TIME)
 
 
-@threaded
-def flash_leds(microscope):
-    microscope.SetLEDState(0, 0)
-    time.sleep(COMMAND_TIME)
-    microscope.SetLEDState(0, 2)
-    time.sleep(COMMAND_TIME)
-    clear_line(1)
-    print("flash_leds", end="\r")
-
-
 def led_off(microscope):
     microscope.SetLEDState(0, 0)
     time.sleep(COMMAND_TIME)
@@ -140,7 +140,8 @@ def start_recording(frame_width, frame_height, fps):
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     filename = f"video_{timestamp}.avi"
     fourcc = cv2.VideoWriter.fourcc(*"XVID")
-    video_writer = cv2.VideoWriter(filename, fourcc, fps, (frame_width, frame_height))
+    video_writer = cv2.VideoWriter(
+        filename, fourcc, fps, (frame_width, frame_height))
     clear_line(1)
     print(f"Video recording started: {filename}. Press r to stop.", end="\r")
     return video_writer
@@ -283,7 +284,7 @@ def start_camera(microscope):
     video_writer = None
     inits = True
 
-    # print_keymaps()
+    print_keymaps()
 
     while True:
         ret, frame = camera.read()
@@ -303,7 +304,8 @@ def start_camera(microscope):
         # Press 'r' to start recording
         if key == ord("r") and not recording:
             recording = True
-            video_writer = start_recording(CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
+            video_writer = start_recording(
+                CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
 
         # Press 'r' again to stop recording
         elif key == ord("r") and recording:
