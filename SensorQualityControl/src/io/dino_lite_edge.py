@@ -44,7 +44,7 @@ class Microscope:
             print("Error: ", err)
         # Set index of video device. Call before Init().
         self.__device_index__ = device_index
-        self.__microscope__ = DNX64(DNX64_PATH)
+        self.__microscope__ = DNX64(microscope_path)
         self.set_index(self.__device_index__)
         # Enabled MicroTouch Event
         self.__microscope__.EnableMicroTouch(True)
