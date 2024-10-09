@@ -5,6 +5,11 @@ import cv2
 from pynput.mouse import Listener  # Use pynput for scroll detection
 from datetime import datetime
 from threading import Thread
+import os
+from dino import initialize_camera, process_frame, init_microscope
+from DNX64 import *
+
+DNX64_PATH = "C:\\Windows\\System32\\DNX64.dll"
 
 INITIAL_POSITION = (114.00, 139.10, 59.75, 0.00)
 X = INITIAL_POSITION[0]
@@ -18,7 +23,7 @@ SCALE_FACTOR = 0.1
 ZOOM_STEP = 1.0  # Amount to zoom per scroll step
 FINE_ZOOM_STEP = 0.1  # Fine zoom step for z key
 ser = serial.Serial()
-ser.port = "COM4"
+ser.port = "COM1"
 ser.baudrate = 115200
 time.sleep(2)
 
@@ -76,34 +81,37 @@ def init_params():
     send_gcode("G91")
 
 
-def display_camera_feed():
-    cap = cv2.VideoCapture(1)
-    cv2.namedWindow("Camera Feed", cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty("Camera Feed", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+# def display_camera_feed():
+#     cap = cv2.VideoCapture(0)
+#     cv2.namedWindow("Camera Feed", cv2.WND_PROP_FULLSCREEN)
+#     cv2.setWindowProperty("Camera Feed", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+#     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+#     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame")
-            break
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             print("Failed to grab frame")
+#             break
+#         image_filename = os.path.join(f"test.jpg")
+#         cv2.imwrite(image_filename, frame)
+#         height, width, _ = frame.shape
+#         center_x, center_y = width // 2, height // 2
 
-        height, width, _ = frame.shape
-        center_x, center_y = width // 2, height // 2
+#         cv2.line(
+#             frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 0, 255), 2
+#         )
+#         cv2.line(
+#             frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 0, 255), 2
+#         )
 
-        cv2.line(
-            frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 0, 255), 2
-        )
-        cv2.line(
-            frame, (center_x, center_y - 20), (center_x, center_y + 20), (0, 0, 255), 2
-        )
+#         cv2.imshow("Camera Feed", frame)
 
-        cv2.imshow("Camera Feed", frame)
+#         if cv2.waitKey(1) & 0xFF == ord("q"):
+#             break
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
+#     cap.release()
+#     cv2.destroyAllWindows()
 
 
 def on_scroll(x, y, dx, dy):
@@ -114,26 +122,31 @@ def on_scroll(x, y, dx, dy):
         move_z(-ZOOM_STEP)
 
 
-def main():
-    print("SELECT THE 4 CORNERS OF THE SENSOR")
-    print("Use WASD keys for large movements (W: up, A: left, S: down, D: right).")
-    print("Use arrow keys for fine movements (↑: up, ↓: down, ←: left, →: right).")
-    print("Scroll to zoom (Z-axis).")
-    print("Press 'z' to zoom in (fine).")
-    print("Press 'x' to zoom out (fine).")
-    print("Press 'Enter' to log the current position.")
-    print("Press 'q' to quit.")
-    ser.open()
-    init_params()
+def start(microscope):
+    """Starts camera, initializes variables for video preview, and listens for shortcut keys."""
 
-    # camera_thread = Thread(target=display_camera_feed)
-    # camera_thread.start()
+    camera = initialize_camera()
 
-    # Start listening for scroll events using pynput
-    scroll_listener = Listener(on_scroll=on_scroll)
-    scroll_listener.start()
+    if not camera.isOpened():
+        print("Error opening the camera device.")
+        return
+
+    recording = False
+    video_writer = None
+    inits = True
 
     while True:
+        ret, frame = camera.read()
+        if ret:
+            resized_frame = process_frame(frame)
+            cv2.imshow("Dino-Lite Camera", resized_frame)
+
+            if recording:
+                video_writer.write(frame)
+            # Only initialize once in this while loop
+            if inits:
+                microscope = init_microscope(microscope)
+                inits = False
         if keyboard.is_pressed("w"):
             move_y(LARGE_STEP)
             time.sleep(0.5)
@@ -171,9 +184,32 @@ def main():
             print("Exiting...")
             break
 
-    ser.close()
+    if video_writer is not None:
+        video_writer.release()
+    camera.release()
+    cv2.destroyAllWindows()
+
+
+def main():
+    print("SELECT THE 4 CORNERS OF THE SENSOR")
+    print("Use WASD keys for large movements (W: up, A: left, S: down, D: right).")
+    print("Use arrow keys for fine movements (↑: up, ↓: down, ←: left, →: right).")
+    print("Scroll to zoom (Z-axis).")
+    print("Press 'z' to zoom in (fine).")
+    print("Press 'x' to zoom out (fine).")
+    print("Press 'Enter' to log the current position.")
+    print("Press 'q' to quit.")
+    # ser.open()
+    # init_params()
+
+    # scroll_listener = Listener(on_scroll=on_scroll)
+    # scroll_lisqtener.start()
+    micro_scope = DNX64(DNX64_PATH)
+    start(micro_scope)
+
+    # ser.close()
     # camera_thread.join()
-    scroll_listener.stop()
+    # scroll_listener.stop()
 
 
 if __name__ == "__main__":
