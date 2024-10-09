@@ -12,8 +12,8 @@ import numpy as np
 from tqdm import tqdm
 
 # Define boundaries and movement deltas
-INITIAL_POSITION = (110.30, 131.80, 51.81, 0.00)
-FINAL_POSITION = (121.30, 121.00, 51.81, 0.00)
+INITIAL_POSITION = (105.30, 131.20, 10.11, 0.00)
+FINAL_POSITION = (116.60, 120.20, 10.11, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
@@ -23,7 +23,7 @@ Y_MAX = INITIAL_POSITION[1]
 Y_MIN = FINAL_POSITION[1]
 Z_FIXED = INITIAL_POSITION[2]
 FEED_RATE = 200
-X_DELTA, Y_DELTA = 0.5, -0.5
+X_DELTA, Y_DELTA = 0.8, -0.8
 SCALE_FACTOR = 1
 ser = serial.Serial()
 ser.port = "COM4"
@@ -51,6 +51,7 @@ def control_machine(x, y):
 
 def capture_image(frame, tile_num, folder):
     # Save the image with the coordinates in the filename
+    # time.sleep(3)
     image_filename = os.path.join(folder, f"tile_{tile_num}.jpg")
     cv2.imwrite(image_filename, frame)
 
@@ -114,7 +115,6 @@ def process_video(folder):
                 tile += 1
             else:
                 print("Failed to capture image.")
-        time.sleep(3)
 
     # Write the tile locations to a CSV file
     csv_file_path = os.path.join(folder, "tile_locations.csv")
@@ -134,6 +134,8 @@ def get_input_folder():
     folder = os.path.join("content", "images", "raw_images")
 
     if not os.path.exists(folder):
+        os.remove(folder)
+
         os.makedirs(folder)  # Create the folder if it does not exist
         print(f"Created folder: {folder}")
     else:
@@ -146,6 +148,7 @@ def get_output_folder():
     folder = os.path.join("content", "images", "stitched_images")
 
     if not os.path.exists(folder):
+        os.remove(folder)
         os.makedirs(folder)  # Create the folder if it does not exist
         print(f"Created folder: {folder}")
     else:

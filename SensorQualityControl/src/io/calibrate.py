@@ -2,9 +2,9 @@ import keyboard
 import serial
 import time
 import cv2
-import numpy as np
 from pynput.mouse import Listener  # Use pynput for scroll detection
 from datetime import datetime
+from threading import Thread
 
 INITIAL_POSITION = (114.00, 139.10, 59.75, 0.00)
 X = INITIAL_POSITION[0]
@@ -89,6 +89,7 @@ def display_camera_feed():
 
         height, width, _ = frame.shape
         center_x, center_y = width // 2, height // 2
+
         cv2.line(
             frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 0, 255), 2
         )
@@ -107,13 +108,14 @@ def display_camera_feed():
 
 def on_scroll(x, y, dx, dy):
     """Handle scroll wheel zoom (Z-axis movement)."""
-    if dy > 0:  # Scroll up
+    if dy < 0:  # Scroll up
         move_z(ZOOM_STEP)
-    elif dy < 0:  # Scroll down
+    elif dy > 0:  # Scroll down
         move_z(-ZOOM_STEP)
 
 
 def main():
+    print("SELECT THE 4 CORNERS OF THE SENSOR")
     print("Use WASD keys for large movements (W: up, A: left, S: down, D: right).")
     print("Use arrow keys for fine movements (↑: up, ↓: down, ←: left, →: right).")
     print("Scroll to zoom (Z-axis).")
@@ -124,10 +126,8 @@ def main():
     ser.open()
     init_params()
 
-    from threading import Thread
-
-    camera_thread = Thread(target=display_camera_feed)
-    camera_thread.start()
+    # camera_thread = Thread(target=display_camera_feed)
+    # camera_thread.start()
 
     # Start listening for scroll events using pynput
     scroll_listener = Listener(on_scroll=on_scroll)
@@ -172,7 +172,7 @@ def main():
             break
 
     ser.close()
-    camera_thread.join()
+    # camera_thread.join()
     scroll_listener.stop()
 
 

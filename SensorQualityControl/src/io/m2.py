@@ -1,54 +1,47 @@
-# coding: utf-8
-from os import path
-
-import numpy as np
 import pandas as pd
+from PIL import Image
+import numpy as np
 
-import m2stitch
 
-script_path = path.dirname(path.realpath(__file__))
+def stitch_tiles(csv_file, tile_dir, output_file):
+    # Load the CSV file
+    df = pd.read_csv(csv_file)
 
-image_file_path = path.join(script_path, "../tests/data/testimages.npy")
-props_file_path = path.join(script_path, "../tests/data/testimages_props.csv")
-images = np.load(image_file_path)
-props = pd.read_csv(props_file_path, index_col=0)
+    # Get the number of rows and columns for the final stitched image
+    max_row = df["Row Index"].max() + 1
+    max_col = df["Column Index"].max() + 1
 
-rows = props["row"].to_list()
-cols = props["col"].to_list()
+    # Load a sample tile to get its dimensions
+    sample_tile = Image.open(f"{tile_dir}/tile_1.jpg")
+    tile_width, tile_height = sample_tile.size
 
-print(images.shape)
-# must be 3-dim, with each dimension meaning (tile_index,x,y)
-print(rows)
-# the row (second-last dim.) indices for each tile index. for example, [1,1,2,2,2,...]
-print(cols)
-# the column (last dim.) indices for each tile index. for example, [2,3,1,2,3,...]
+    # Create a blank canvas for the final stitched image
+    stitched_image = Image.new("RGB", (tile_width * max_col, tile_height * max_row))
 
-# Note : the row_col_transpose=True is kept only for the sake of version compatibility.
-# In the mejor version, the row_col_transpose=False will be the default.
-result_df, _ = m2stitch.stitch_images(images, rows, cols, row_col_transpose=False)
+    # Loop through each tile and place it in the correct position
+    for index, row in df.iterrows():
+        tile_number = row["Tile Number"]
+        row_index = row["Row Index"]
+        col_index = row["Column Index"]
 
-print(result_df["y_pos"])
-# the absolute y (second last dim.) positions of the tiles
-print(result_df["x_pos"])
-# the absolute x (last dim.) positions of the tiles
+        # Load the corresponding tile image
+        tile_image = Image.open(f"{tile_dir}/tile_{tile_number}.jpg")
 
-# stitching example
-result_df["y_pos2"] = result_df["y_pos"] - result_df["y_pos"].min()
-result_df["x_pos2"] = result_df["x_pos"] - result_df["x_pos"].min()
+        # Calculate the position where the tile should be pasted
+        x_position = row_index * tile_width
+        y_position = col_index * tile_height
 
-size_y = images.shape[1]
-size_x = images.shape[2]
+        # Paste the tile onto the final stitched image
+        stitched_image.paste(tile_image, (x_position, y_position))
 
-stitched_image_size = (
-    result_df["y_pos2"].max() + size_y,
-    result_df["x_pos2"].max() + size_x,
+    # Save the stitched image
+    stitched_image.save(output_file)
+    print(f"Stitched image saved as {output_file}")
+
+
+# Example usage
+stitch_tiles(
+    r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\raw_images\tile_locations.csv",
+    r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\raw_images",
+    "stitched_image.jpg",
 )
-stitched_image = np.zeros_like(images, shape=stitched_image_size)
-for i, row in result_df.iterrows():
-    stitched_image[
-        row["y_pos2"] : row["y_pos2"] + size_y,
-        row["x_pos2"] : row["x_pos2"] + size_x,
-    ] = images[i]
-
-result_image_file_path = path.join(script_path, "stitched_image.npy")
-np.save(result_image_file_path, stitched_image)
