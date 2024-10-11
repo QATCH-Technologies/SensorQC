@@ -73,6 +73,7 @@ class Microscope:
         self.__microscope__.SetFLCLevel(self.__device_index__, level)
         time.sleep(COMMAND_TIME)
 
+    @threaded
     def led_on(self, state):
         self.__microscope__.SetLEDState(
             self.__device_index__, state)
@@ -219,5 +220,6 @@ if __name__ == "__main__":
     # c.run()
 
     # print(m.get_autoexposure())
-    # m.set_exposure(63076)
+    m.led_on(state=1)
+    m.led_off()
     # time.sleep(10)
