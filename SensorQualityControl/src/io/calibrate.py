@@ -46,7 +46,8 @@ def get_abs_position():
 
     # Save the response to a new file with a timestamp
     with open("gcode_position.txt", "a") as file:  # Open in append mode
-        file.write(f"{timestamp}: {response}\n")  # Write the timestamp and response
+        # Write the timestamp and response
+        file.write(f"{timestamp}: {response}\n")
 
 
 def send_gcode(command):
@@ -202,7 +203,7 @@ def main():
     # ser.open()
     # init_params()
 
-    # scroll_listener = Listener(on_scroll=on_scroll)
+    scroll_listener = Listener(on_scroll=on_scroll)
     # scroll_lisqtener.start()
     micro_scope = DNX64(DNX64_PATH)
     start(micro_scope)

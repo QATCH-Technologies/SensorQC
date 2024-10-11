@@ -12,7 +12,7 @@ CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 2592, 1944, 30
 DEVICE_INDEX = 0
 # Camera index, please change it if you have more than one camera,
 # i.e. webcam, connected to your PC until CAM_INDEX is been set to first Dino-Lite product.
-CAM_INDEX = 0
+CAM_INDEX = 1
 # Buffer time for Dino-Lite to return value
 QUERY_TIME = 0.05
 # Buffer time to allow Dino-Lite to process command
@@ -75,6 +75,7 @@ class Microscope:
 
     @threaded
     def led_on(self, state):
+        self.led_off()
         self.__microscope__.SetLEDState(
             self.__device_index__, state)
         time.sleep(COMMAND_TIME)
@@ -163,6 +164,9 @@ class Microscope:
         time.sleep(QUERY_TIME)
         return amr_info
 
+    def end(self):
+        self.led_off()
+
 
 class Camera:
     def __init__(self, recording: bool = False, video_writer=None,):
@@ -177,11 +181,11 @@ class Camera:
                             cv2.VideoWriter.fourcc("M", "J", "P", "G"))
         self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        self.running = False
 
-
-def set_index(microscope):
-    microscope.SetVideoDeviceIndex(0)
-    time.sleep(COMMAND_TIME)
+    def set_index(microscope):
+        microscope.SetVideoDeviceIndex(0)
+        time.sleep(COMMAND_TIME)
 
     def capture_image(frame):
         """Capture an image and save it in the current working directory."""
@@ -206,12 +210,15 @@ def set_index(microscope):
                 cv2.imshow("Dino-Lite Camera", resized_frame)
             if cv2.waitKey(1) == ord('q'):
                 break
-        self.__camera__.release()
-        cv2.destroyAllWindows()
 
-
-def sample():
-    print('Hello World')
+    def toggle_camera(self):
+        if not self.running:
+            self.running = True
+            threading.Thread(target=self.run, daemon=True).start()
+        else:
+            self.running = False
+            self.__camera__.release()
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
