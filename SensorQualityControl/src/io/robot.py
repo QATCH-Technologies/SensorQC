@@ -5,7 +5,6 @@ BAUDRATE = 115200
 COMMAND_TIME = 0.5
 FEED_RATE = 1000
 UNITS = "G21"
-MODE = "G91"
 
 
 class Robot:
@@ -32,37 +31,54 @@ class Robot:
     def translate_x(self, distance: float, speed: float = FEED_RATE) -> str:
         g_code = f"G0 X{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
+        print(response)
         return response
 
     def translate_y(self, distance: float, speed: float = FEED_RATE) -> str:
         g_code = f"G0 Y{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
+        print(response)
         return response
 
     def translate_z(self, distance: float, speed: float = FEED_RATE) -> str:
         g_code = f"G0 Z{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
+        print(response)
         return response
 
     def go_to(self, x_position, y_position, z_position, speed: int = FEED_RATE) -> str:
-        g_code = (
-            f"G01 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f} F{speed:.2f}\n"
-        )
+        print(x_position, y_position, z_position)
+        g_code = f"G00 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f}\n"
+        response = self.send_gcode(g_code)
+        return response
+
+    def absolute_mode(self) -> str:
+        print("[INFO] Running in absolute mode.")
+        g_code = "G90"
+        response = self.send_gcode(g_code)
+        return response
+
+    def relative_mode(self) -> str:
+        print("[INFO] Running in relative mode.")
+        g_code = "G91"
         response = self.send_gcode(g_code)
         return response
 
     def get_absolute_position(self) -> str:
-        g_code = "M114"
-        response = self.send_gcode(g_code)
-        print(response)
+        mode_switch = self.absolute_mode()
+        print(mode_switch)
+        response = None
+        if mode_switch.lower() == "ok":
+            g_code = "M114"
+            response = self.send_gcode(g_code)
+            print(response)
         return response
 
     def begin(self) -> str:
         if self.__serial__:
             self.__serial__.open()
             response_1 = self.send_gcode(UNITS)
-            response_2 = self.send_gcode(MODE)
-            if response_1.lower() == "ok" and response_2.lower() == "ok":
+            if response_1.lower() == "ok":
                 return "ok"
             raise IOError("Error during robot initialization; unrecognized command.")
         else:

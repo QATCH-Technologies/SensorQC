@@ -19,6 +19,7 @@ class Controls:
         self.__camera__ = camera
         self.__microscope__ = microscope
         self.__robot__.begin()
+        self.__robot__.relative_mode()
         self.__axis_state__ = {"X": False, "Y": False, "Z": False}
 
     def move_z(self, direction, speed):

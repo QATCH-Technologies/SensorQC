@@ -14,8 +14,8 @@ from robot import Robot
 from dino_lite_edge import Camera, Microscope
 
 # Define boundaries and movement deltas
-INITIAL_POSITION = (105.30, 131.20, 10.11, 0.00)
-FINAL_POSITION = (116.60, 120.20, 10.11, 0.00)
+INITIAL_POSITION = (105.20, 133.90, 8.80, 0.00)
+FINAL_POSITION = (116.00, 121.90, 8.80, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
@@ -24,7 +24,7 @@ X_MAX = FINAL_POSITION[0]
 Y_MAX = INITIAL_POSITION[1]
 Y_MIN = FINAL_POSITION[1]
 Z_FIXED = INITIAL_POSITION[2]
-FEED_RATE = 200
+FEED_RATE = 1000
 X_DELTA, Y_DELTA = 0.5, -0.5
 SCALE_FACTOR = 1
 
@@ -32,6 +32,8 @@ SCALE_FACTOR = 1
 scope = Microscope()
 cam = Camera()
 rob = Robot(debug=False)
+rob.begin()
+rob.absolute_mode()
 
 
 def init_params():
@@ -51,20 +53,33 @@ def init_params():
 
 
 def process_video(folder):
-
+    init_params()
     tile = 1
 
     # Prepare a list to store tile locations
     tile_locations = []
     scope.disable_microtouch()
     scope.led_on(state=2)
+    new_row = True
     for row_index, x in tqdm(
         enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
     ):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
             rob.go_to(x, y, Z_FIXED)
-            cam.capture_image(name=f"{folder}\\tile_{tile}")
+            if new_row:
+                time.sleep(2)
+                new_row = False
+            else:
+                time.sleep(0.2)
 
+            # for i in range(3):
+            #     cam.__camera__.read()
+            cam.capture_image(name=f"{folder}\\tile_{tile}")
+            #
+            tile += 1
+        # for i in range(4):
+        #     cam.__camera__.read()
+        new_row = True
     # # Write the tile locations to a CSV file
     # csv_file_path = os.path.join(folder, "tile_locations.csv")
     # with open(csv_file_path, mode="w", newline="") as file:
@@ -73,14 +88,17 @@ def process_video(folder):
     #         ["Tile Number", "Row Index", "Column Index"]
     #     )  # Write the header
     #     writer.writerows(tile_locations)  # Write the data
+    rob.end()
 
 
 def get_input_folder():
     # Define the folder path
     folder = os.path.join("content", "images", "raw_images")
-    os.remove(folder)
-    os.makedirs(folder)  # Create the folder if it does not exist
-    print(f"Created folder: {folder}")
+    if os.path.exists(folder):
+        return folder
+    else:
+        os.makedirs(folder)  # Create the folder if it does not exist
+        print(f"Created folder: {folder}")
     return folder
 
 

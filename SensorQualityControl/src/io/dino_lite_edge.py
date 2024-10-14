@@ -9,7 +9,15 @@ import keyboard
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
 WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
-CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 2592, 1944, 30
+"""
+Supported Resolutions:
+- 640 x 480
+- 1280 x 960
+- 1600 x 1200
+- 2048 x 1536
+- 2582 x 1944
+"""
+CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 2582, 1944, 30
 DEVICE_INDEX = 0
 # Camera index, please change it if you have more than one camera,
 # i.e. webcam, connected to your PC until CAM_INDEX is been set to first Dino-Lite product.
@@ -190,13 +198,14 @@ class Camera:
         )
         self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
 
     def set_index(microscope):
         microscope.SetVideoDeviceIndex(0)
         time.sleep(COMMAND_TIME)
 
-    def capture_image(self, frame, name: str = ""):
+    def capture_image(self, name: str = ""):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
 
@@ -204,13 +213,30 @@ class Camera:
             self.running = True
             if name == "":
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                filename = f"image_{timestamp}.png"
+                filename = f"image_{timestamp}.jpg"
             else:
-                filename = f"{name}.png"
+                filename = f"{name}.jpg"
             cv2.imwrite(filename, frame)
         self.running = False
 
     def process_frame(self, frame):
+        height, width, _ = frame.shape
+        center_x, center_y = width // 2, height // 2
+
+        cv2.line(
+            frame,
+            (center_x - 20, center_y),
+            (center_x + 20, center_y),
+            (0, 0, 255),
+            2,
+        )
+        cv2.line(
+            frame,
+            (center_x, center_y - 20),
+            (center_x, center_y + 20),
+            (0, 0, 255),
+            2,
+        )
         return cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT))
 
     def run(self):
@@ -222,23 +248,6 @@ class Camera:
             status, frame = self.__camera__.read()
             if status:
                 resized_frame = self.process_frame(frame)
-                height, width, _ = frame.shape
-                center_x, center_y = width // 2, height // 2
-
-                cv2.line(
-                    resized_frame,
-                    (center_x - 20, center_y),
-                    (center_x + 20, center_y),
-                    (0, 0, 255),
-                    2,
-                )
-                cv2.line(
-                    resized_frame,
-                    (center_x, center_y - 20),
-                    (center_x, center_y + 20),
-                    (0, 0, 255),
-                    2,
-                )
                 cv2.imshow("Dino-Lite Camera", resized_frame)
                 if cv2.waitKey(1) & 0xFF == ord("p"):
                     break
@@ -251,3 +260,8 @@ class Camera:
             self.running = False
             self.__camera__.release()
             cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    scope = Microscope()
+    print(scope.get_fov_index())
