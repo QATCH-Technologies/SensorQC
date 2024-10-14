@@ -196,13 +196,19 @@ class Camera:
         microscope.SetVideoDeviceIndex(0)
         time.sleep(COMMAND_TIME)
 
-    def capture_image(frame):
+    def capture_image(self, frame, name: str = ""):
         """Capture an image and save it in the current working directory."""
+        status, frame = self.__camera__.read()
 
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = f"image_{timestamp}.png"
-        cv2.imwrite(filename, frame)
-        print(f"Saved image to {filename}", end="\r")
+        if status:
+            self.running = True
+            if name == "":
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"image_{timestamp}.png"
+            else:
+                filename = f"{name}.png"
+            cv2.imwrite(filename, frame)
+        self.running = False
 
     def process_frame(self, frame):
         return cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -220,14 +226,14 @@ class Camera:
                 center_x, center_y = width // 2, height // 2
 
                 cv2.line(
-                    frame,
+                    resized_frame,
                     (center_x - 20, center_y),
                     (center_x + 20, center_y),
                     (0, 0, 255),
                     2,
                 )
                 cv2.line(
-                    frame,
+                    resized_frame,
                     (center_x, center_y - 20),
                     (center_x, center_y + 20),
                     (0, 0, 255),

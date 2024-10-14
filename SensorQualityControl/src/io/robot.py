@@ -30,17 +30,24 @@ class Robot:
             return command
 
     def translate_x(self, distance: float, speed: float = FEED_RATE) -> str:
-        g_code = f"G0 X{distance} F{speed}"
+        g_code = f"G0 X{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
         return response
 
     def translate_y(self, distance: float, speed: float = FEED_RATE) -> str:
-        g_code = f"G0 Y{distance} F{speed}"
+        g_code = f"G0 Y{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
         return response
 
     def translate_z(self, distance: float, speed: float = FEED_RATE) -> str:
-        g_code = f"G0 Z{distance} F{speed}"
+        g_code = f"G0 Z{distance:.2f} F{speed:.2f}"
+        response = self.send_gcode(g_code)
+        return response
+
+    def go_to(self, x_position, y_position, z_position, speed: int = FEED_RATE) -> str:
+        g_code = (
+            f"G01 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f} F{speed:.2f}\n"
+        )
         response = self.send_gcode(g_code)
         return response
 
