@@ -72,6 +72,7 @@ class Robot:
             g_code = "M114"
             response = self.send_gcode(g_code)
             print(response)
+        self.relative_mode()
         return response
 
     def begin(self) -> str:
