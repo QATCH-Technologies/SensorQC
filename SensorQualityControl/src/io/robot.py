@@ -3,13 +3,15 @@ import time
 
 BAUDRATE = 115200
 COMMAND_TIME = 0.5
-FEED_RATE = 400
+FEED_RATE = 1000
 UNITS = "G21"
 MODE = "G91"
 
 
 class Robot:
-    def __init__(self, port: str = 'COM4', baudrate: int = BAUDRATE, debug: bool = False) -> None:
+    def __init__(
+        self, port: str = "COM4", baudrate: int = BAUDRATE, debug: bool = False
+    ) -> None:
         if debug:
             print("Running in DEBUG mode")
             self.__serial__ = None
@@ -53,15 +55,14 @@ class Robot:
             self.__serial__.open()
             response_1 = self.send_gcode(UNITS)
             response_2 = self.send_gcode(MODE)
-            if response_1.lower() == 'ok' and response_2.lower() == 'ok':
-                return 'ok'
-            raise IOError(
-                'Error during robot initialization; unrecognized command.')
+            if response_1.lower() == "ok" and response_2.lower() == "ok":
+                return "ok"
+            raise IOError("Error during robot initialization; unrecognized command.")
         else:
-            print('DEBUG MODE: start')
+            print("DEBUG MODE: start")
 
     def end(self) -> None:
         if self.__serial__:
             self.__serial__.close()
         else:
-            print('DEBUG MODE: end')
+            print("DEBUG MODE: end")

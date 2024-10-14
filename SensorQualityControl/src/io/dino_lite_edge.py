@@ -5,7 +5,8 @@ import time
 import cv2
 from DNX64 import *
 import keyboard
-DNX64_PATH = "C:\\Windows\\System32\\DNX64.dll"
+
+DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
 WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 2592, 1944, 30
@@ -37,7 +38,9 @@ def threaded(func):
 
 
 class Microscope:
-    def __init__(self, microscope_path: str = DNX64_PATH, device_index: int = DEVICE_INDEX):
+    def __init__(
+        self, microscope_path: str = DNX64_PATH, device_index: int = DEVICE_INDEX
+    ):
         try:
             DNX64 = getattr(importlib.import_module("DNX64"), "DNX64")
         except ImportError as err:
@@ -76,8 +79,7 @@ class Microscope:
     @threaded
     def led_on(self, state):
         self.led_off()
-        self.__microscope__.SetLEDState(
-            self.__device_index__, state)
+        self.__microscope__.SetLEDState(self.__device_index__, state)
         time.sleep(COMMAND_TIME)
 
     def microtouch(self, routine):
@@ -128,7 +130,7 @@ class Microscope:
             "2 segments LED": (config & 0xC) == 0x4,
             "3 segments LED": (config & 0xC) == 0x8,
             "FLC": (config & 0x2) == 0x2,
-            "AXI": (config & 0x1) == 0x1
+            "AXI": (config & 0x1) == 0x1,
         }
         time.sleep(QUERY_TIME)
         return config_dict
@@ -140,8 +142,7 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(
-                DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_mm": fov}
         else:
             fov_info = {"magnification": amr, "fov_mm": fov}
@@ -158,8 +159,10 @@ class Microscope:
             amr = round(amr, 1)
             amr_info = {"amr_value": amr, "message": f"{amr}x"}
         else:
-            amr_info = {"amr_value": None,
-                        "message": "It does not belong to the AMR series."}
+            amr_info = {
+                "amr_value": None,
+                "message": "It does not belong to the AMR series.",
+            }
 
         time.sleep(QUERY_TIME)
         return amr_info
@@ -169,16 +172,22 @@ class Microscope:
 
 
 class Camera:
-    def __init__(self, recording: bool = False, video_writer=None,):
+    def __init__(
+        self,
+        recording: bool = False,
+        video_writer=None,
+    ):
         self.__recording__ = recording
         self.__video_writer__ = video_writer
 
         self.__camera__ = cv2.VideoCapture(CAM_INDEX)
         self.__camera__.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-        self.__camera__.set(cv2.CAP_PROP_FOURCC,
-                            cv2.VideoWriter.fourcc("m", "j", "p", "g"))
-        self.__camera__.set(cv2.CAP_PROP_FOURCC,
-                            cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+        self.__camera__.set(
+            cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g")
+        )
+        self.__camera__.set(
+            cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
+        )
         self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
         self.running = False
@@ -207,9 +216,26 @@ class Camera:
             status, frame = self.__camera__.read()
             if status:
                 resized_frame = self.process_frame(frame)
+                height, width, _ = frame.shape
+                center_x, center_y = width // 2, height // 2
+
+                cv2.line(
+                    frame,
+                    (center_x - 20, center_y),
+                    (center_x + 20, center_y),
+                    (0, 0, 255),
+                    2,
+                )
+                cv2.line(
+                    frame,
+                    (center_x, center_y - 20),
+                    (center_x, center_y + 20),
+                    (0, 0, 255),
+                    2,
+                )
                 cv2.imshow("Dino-Lite Camera", resized_frame)
-            if cv2.waitKey(1) == ord('q'):
-                break
+                if cv2.waitKey(1) & 0xFF == ord("p"):
+                    break
 
     def toggle_camera(self):
         if not self.running:
@@ -219,14 +245,3 @@ class Camera:
             self.running = False
             self.__camera__.release()
             cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    c = Camera()
-    m = Microscope()
-    # c.run()
-
-    # print(m.get_autoexposure())
-    m.led_on(state=1)
-    m.led_off()
-    # time.sleep(10)
