@@ -150,7 +150,8 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(
+                DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_mm": fov}
         else:
             fov_info = {"magnification": amr, "fov_mm": fov}
@@ -184,21 +185,25 @@ class Camera:
         self,
         recording: bool = False,
         video_writer=None,
+        debug=False
     ):
-        self.__recording__ = recording
-        self.__video_writer__ = video_writer
+        if debug:
+            self.__camera__ = cv2.VideoCapture(0)
+        else:
+            self.__recording__ = recording
+            self.__video_writer__ = video_writer
 
-        self.__camera__ = cv2.VideoCapture(CAM_INDEX)
-        self.__camera__.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-        self.__camera__.set(
-            cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g")
-        )
-        self.__camera__.set(
-            cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
-        )
-        self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-        self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-        self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            self.__camera__ = cv2.VideoCapture(CAM_INDEX)
+            self.__camera__.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+            self.__camera__.set(
+                cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g")
+            )
+            self.__camera__.set(
+                cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
+            )
+            self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+            self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+            self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
 
     def set_index(microscope):

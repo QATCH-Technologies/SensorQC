@@ -12,8 +12,18 @@ import numpy as np
 from tqdm import tqdm
 from robot import Robot
 from dino_lite_edge import Camera, Microscope
-
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from calibrate import calibrate_focus
+Z_INITIAL = 9.0
+Z_RANGE = (8.5, 9.2)
+STEP_SIZE = 0.05
+CORNERS = {
+    "top_left": (10, 20),
+    "top_right": (110, 20),
+    "bottom_right": (110, 120),
+    "bottom_left": (10, 120)
+}
 # Define boundaries and movement deltas
 INITIAL_POSITION = (104.70, 132.9, 8.80, 0.00)
 FINAL_POSITION = (116.20, 122.40, 8.80, 0.00)
@@ -30,38 +40,50 @@ X_DELTA, Y_DELTA = 0.5, -0.5
 SCALE_FACTOR = 1
 
 
-# scope = Microscope()
-# cam = Camera()
-# rob = Robot(debug=False)
-# rob.begin()
-# rob.absolute_mode()
+scope = Microscope()
+cam = Camera()
+rob = Robot(debug=False)
+rob.begin()
+rob.absolute_mode()
 
 
-def build_gradient_z(top_left, top_right, bottom_left, bottom_right):
+def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
     x_range = abs(X_MAX - X_MIN)
     y_range = abs(Y_MAX - Y_MIN)
     rows = int(x_range // X_DELTA)
     cols = int(y_range // -Y_DELTA)
-    print(rows, cols)
-    grid_1 = np.zeros((cols, rows))
-    T = np.linspace(start=top_left, stop=bottom_left, num=cols)
-    Q = np.linspace(start=top_right, stop=bottom_right, num=cols)
-    grid_1[:, 0] = T
-    grid_1[:, -1] = Q
-    for i in range(cols):
-        R = np.linspace(start=grid_1[i][0], stop=grid_1[i][-1], num=rows)
-        grid_1[i] = R
-
-    grid_2 = np.zeros((cols, rows))
-    T = np.linspace(start=top_left, stop=top_right, num=rows)
-    Q = np.linspace(start=bottom_left, stop=bottom_right, num=rows)
-    grid_2[0,] = T
-    grid_2[-1,] = Q
+    plane = np.zeros((rows, cols))
     for i in range(rows):
-        R = np.linspace(start=grid_2[0][i], stop=grid_2[-1][i], num=cols)
-        grid_2[:, i] = R
+        # Linear interpolation between top-left and bottom-left (for left column)
+        z_left = top_left + (bottom_left - top_left) * (i / (rows - 1))
 
-    print(np.equal(grid_1, grid_2))
+        # Linear interpolation between top-right and bottom-right (for right column)
+        z_right = top_right + \
+            (bottom_right - top_right) * (i / (rows - 1))
+
+        # Interpolate between the left and right sides for each row
+        for j in range(cols):
+            plane[i, j] = z_left + (z_right - z_left) * (j / (cols - 1))
+
+    def plot_plane(plane):
+        rows, cols = plane.shape
+        X, Y = np.meshgrid(np.arange(cols), np.arange(rows))
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        # Z-plane plot
+        ax.plot_surface(X, Y, plane, cmap='viridis',
+                        edgecolor='none', alpha=0.8)
+
+        # Sensor plotting
+        Z_flat = np.zeros_like(plane)
+        ax.plot_surface(X, Y, Z_flat, color='gray',
+                        edgecolor='none', alpha=0.5)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.show()
+    # plot_plane(plane)
+    return plane
 
 
 def init_params():
@@ -80,7 +102,9 @@ def init_params():
     input("Enter to continue...")
 
 
-def process_video(folder):
+def process_video(folder, z_plane):
+    # TODO Implement this portion
+    calibrate_focus(corner_positions=CORNERS, z_range=Z_RANGE, step_size=STEP_SIZE)
     init_params()
     tile = 1
 
@@ -93,29 +117,15 @@ def process_video(folder):
         enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
     ):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
-            rob.go_to(x, y, Z_FIXED)
+            rob.go_to(x, y, z_plane[row_index][col_index])
             if new_row:
                 time.sleep(2)
                 new_row = False
             else:
                 time.sleep(0.2)
-
-            # for i in range(3):
-            #     cam.__camera__.read()
             cam.capture_image(name=f"{folder}\\tile_{tile}")
-            #
             tile += 1
-        # for i in range(4):
-        #     cam.__camera__.read()
         new_row = True
-    # # Write the tile locations to a CSV file
-    # csv_file_path = os.path.join(folder, "tile_locations.csv")
-    # with open(csv_file_path, mode="w", newline="") as file:
-    #     writer = csv.writer(file)
-    #     writer.writerow(
-    #         ["Tile Number", "Row Index", "Column Index"]
-    #     )  # Write the header
-    #     writer.writerows(tile_locations)  # Write the data
     rob.end()
 
 
@@ -144,7 +154,7 @@ def get_output_folder():
 
 
 if __name__ == "__main__":
-    build_gradient_z(9.0, 8.8, 9.0, 8.7)
-    # input_folder = get_input_folder()  # Get folder name from the user
-    # output_folder = get_output_folder()  # Get folder name from the user
-    # process_video(input_folder)  # Process video and capture images
+    plane = interpolate_plane(9.0, 9.0, 9.0, 9.0)
+    input_folder = get_input_folder()  # Get folder name from the user
+    output_folder = get_output_folder()  # Get folder name from the user
+    process_video(input_folder)  # Process video and capture images

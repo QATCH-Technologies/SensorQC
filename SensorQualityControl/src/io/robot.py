@@ -26,6 +26,7 @@ class Robot:
             response = self.__serial__.readline().decode().strip()
             return response
         else:
+            time.sleep(COMMAND_TIME)
             return command
 
     def translate_x(self, distance: float, speed: float = FEED_RATE) -> str:
@@ -46,7 +47,7 @@ class Robot:
         print(response)
         return response
 
-    def go_to(self, x_position, y_position, z_position, speed: int = FEED_RATE) -> str:
+    def go_to(self, x_position, y_position, z_position) -> str:
         print(x_position, y_position, z_position)
         g_code = f"G00 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f}\n"
         response = self.send_gcode(g_code)
@@ -81,7 +82,8 @@ class Robot:
             response_1 = self.send_gcode(UNITS)
             if response_1.lower() == "ok":
                 return "ok"
-            raise IOError("Error during robot initialization; unrecognized command.")
+            raise IOError(
+                "Error during robot initialization; unrecognized command.")
         else:
             print("DEBUG MODE: start")
 
