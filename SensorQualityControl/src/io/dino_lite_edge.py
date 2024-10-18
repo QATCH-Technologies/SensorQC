@@ -4,7 +4,7 @@ import threading
 import time
 import cv2
 from DNX64 import *
-import keyboard
+import numpy as np
 
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
@@ -150,8 +150,7 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(
-                DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_mm": fov}
         else:
             fov_info = {"magnification": amr, "fov_mm": fov}
@@ -181,12 +180,7 @@ class Microscope:
 
 
 class Camera:
-    def __init__(
-        self,
-        recording: bool = False,
-        video_writer=None,
-        debug=False
-    ):
+    def __init__(self, recording: bool = False, video_writer=None, debug=False):
         if debug:
             self.__camera__ = cv2.VideoCapture(0)
         else:
@@ -210,6 +204,9 @@ class Camera:
         microscope.SetVideoDeviceIndex(0)
         time.sleep(COMMAND_TIME)
 
+    def straighten_image(self, image):
+        return image
+
     def capture_image(self, name: str = ""):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
@@ -221,6 +218,7 @@ class Camera:
                 filename = f"image_{timestamp}.jpg"
             else:
                 filename = f"{name}.jpg"
+            self.straighten_image(frame)
             cv2.imwrite(filename, frame)
         self.running = False
 
@@ -268,5 +266,5 @@ class Camera:
 
 
 if __name__ == "__main__":
-    scope = Microscope()
-    print(scope.get_fov_index())
+
+    cam = Camera(debug=True)

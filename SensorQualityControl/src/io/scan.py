@@ -15,6 +15,7 @@ from dino_lite_edge import Camera, Microscope
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from calibrate import calibrate_focus
+
 Z_INITIAL = 9.0
 Z_RANGE = (8.5, 9.2)
 STEP_SIZE = 0.05
@@ -22,7 +23,7 @@ CORNERS = {
     "top_left": (10, 20),
     "top_right": (110, 20),
     "bottom_right": (110, 120),
-    "bottom_left": (10, 120)
+    "bottom_left": (10, 120),
 }
 # Define boundaries and movement deltas
 INITIAL_POSITION = (104.70, 132.9, 8.80, 0.00)
@@ -58,8 +59,7 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         z_left = top_left + (bottom_left - top_left) * (i / (rows - 1))
 
         # Linear interpolation between top-right and bottom-right (for right column)
-        z_right = top_right + \
-            (bottom_right - top_right) * (i / (rows - 1))
+        z_right = top_right + (bottom_right - top_right) * (i / (rows - 1))
 
         # Interpolate between the left and right sides for each row
         for j in range(cols):
@@ -69,19 +69,18 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         rows, cols = plane.shape
         X, Y = np.meshgrid(np.arange(cols), np.arange(rows))
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection="3d")
         # Z-plane plot
-        ax.plot_surface(X, Y, plane, cmap='viridis',
-                        edgecolor='none', alpha=0.8)
+        ax.plot_surface(X, Y, plane, cmap="viridis", edgecolor="none", alpha=0.8)
 
         # Sensor plotting
         Z_flat = np.zeros_like(plane)
-        ax.plot_surface(X, Y, Z_flat, color='gray',
-                        edgecolor='none', alpha=0.5)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
+        ax.plot_surface(X, Y, Z_flat, color="gray", edgecolor="none", alpha=0.5)
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
         plt.show()
+
     # plot_plane(plane)
     return plane
 
