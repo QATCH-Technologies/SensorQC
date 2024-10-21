@@ -151,9 +151,9 @@ class Microscope:
 
         if fov == math.inf:
             fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
-            fov_info = {"magnification": 50.0, "fov_mm": fov}
+            fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
-            fov_info = {"magnification": amr, "fov_mm": fov}
+            fov_info = {"magnification": amr, "fov_um": fov}
 
         time.sleep(QUERY_TIME)
         return fov_info
@@ -266,5 +266,4 @@ class Camera:
 
 
 if __name__ == "__main__":
-
     cam = Camera(debug=True)

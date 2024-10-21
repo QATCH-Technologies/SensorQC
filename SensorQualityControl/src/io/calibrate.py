@@ -6,24 +6,24 @@ from dino_lite_edge import Camera, Microscope
 from robot import Robot
 
 Z_INITIAL = 9.0
-Z_RANGE = (8.5, 9.2)
+Z_RANGE = (5.5, 6.5)
 STEP_SIZE = 0.05
 CORNERS = {
-    "top_left": (10, 20),
-    "top_right": (110, 20),
-    "bottom_right": (110, 120),
-    "bottom_left": (10, 120)
+    "top_left": (108.2, 130.9),
+    "top_right": (117.7, 128.4),
+    "bottom_right": (117.2, 122.9),
+    "bottom_left": (110.2, 122.4),
 }
 scope = Microscope()
-cam = Camera(debug=True)
-rob = Robot(debug=True)
+cam = Camera(debug=False)
+rob = Robot(debug=False)
 rob.begin()
 rob.absolute_mode()
+scope.led_on(state=1)
 
 
 def calculate_laplacian_variance(image):
-    gray_image = cv2.cvtColor(
-        image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
     # Apply Laplacian operator
     laplacian = cv2.Laplacian(gray_image, cv2.CV_64F)
     variance = laplacian.var()  # Compute the variance of the Laplacian
@@ -71,11 +71,9 @@ def calibrate_focus(corner_positions, z_range, step_size):
     return z_heights
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
-    z_height_results = calibrate_focus(
-        CORNERS, Z_RANGE, STEP_SIZE)
+    z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
     print("Calibration Results (Z-heights at corners):")
     print(z_height_results)

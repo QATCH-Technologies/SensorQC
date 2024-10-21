@@ -51,6 +51,7 @@ class Controls:
             self.__robot__.translate_x(distance)
 
     def key_press(self, key):
+        print(f"Exposure: {scope.get_exposure()}")
         if key == "w" and not self.__axis_state__["Y"]:
             self.__axis_state__["Y"] = True
             threading.Thread(target=self.move_up, args=(Y_STEP,), daemon=True).start()
@@ -128,6 +129,14 @@ class Controls:
 
 if __name__ == "__main__":
     scope = Microscope()
+    scope.set_autoexposure(state=0)
+
+    print(scope.get_autoexposure())
+
+    print(scope.get_fov_index())
+    print(scope.get_config())
+    scope.set_exposure(500)
+    print(scope.get_exposure())
     cam = Camera()
     rob = Robot(debug=False)
     controls = Controls(rob, cam, scope)

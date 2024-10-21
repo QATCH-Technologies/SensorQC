@@ -14,20 +14,19 @@ from robot import Robot
 from dino_lite_edge import Camera, Microscope
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from calibrate import calibrate_focus
 
 Z_INITIAL = 9.0
-Z_RANGE = (8.5, 9.2)
+Z_RANGE = (5.5, 6.5)
 STEP_SIZE = 0.05
 CORNERS = {
-    "top_left": (10, 20),
-    "top_right": (110, 20),
-    "bottom_right": (110, 120),
-    "bottom_left": (10, 120),
+    "top_left": (108.2, 130.9),
+    "top_right": (117.7, 128.4),
+    "bottom_right": (117.2, 122.9),
+    "bottom_left": (110.2, 122.4),
 }
 # Define boundaries and movement deltas
-INITIAL_POSITION = (104.70, 132.9, 8.80, 0.00)
-FINAL_POSITION = (116.20, 122.40, 8.80, 0.00)
+INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
+FINAL_POSITION = (117.2, 122.9, 5.94, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
@@ -46,6 +45,8 @@ cam = Camera()
 rob = Robot(debug=False)
 rob.begin()
 rob.absolute_mode()
+scope.disable_microtouch()
+scope.led_on(state=1)
 
 
 def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
@@ -81,7 +82,7 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         ax.set_zlabel("Z")
         plt.show()
 
-    # plot_plane(plane)
+    plot_plane(plane)
     return plane
 
 
@@ -96,27 +97,24 @@ def init_params():
             f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
         ):  # Adjust this condition based on your G-code machine's feedback
             break
-
+    rob.absolute_mode()
     print("Camera has reached the initial position.")
     input("Enter to continue...")
 
 
 def process_video(folder, z_plane):
-    # TODO Implement this portion
-    calibrate_focus(corner_positions=CORNERS, z_range=Z_RANGE, step_size=STEP_SIZE)
     init_params()
     tile = 1
 
     # Prepare a list to store tile locations
     tile_locations = []
-    scope.disable_microtouch()
-    scope.led_on(state=2)
+
     new_row = True
     for row_index, x in tqdm(
         enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
     ):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
-            rob.go_to(x, y, z_plane[row_index][col_index])
+            rob.go_to(x, y, z_plane[row_index - 1][col_index - 1])
             if new_row:
                 time.sleep(2)
                 new_row = False
@@ -153,7 +151,9 @@ def get_output_folder():
 
 
 if __name__ == "__main__":
-    plane = interpolate_plane(9.0, 9.0, 9.0, 9.0)
+    plane = interpolate_plane(
+        6.1999999999999975, 5.999999999999998, 6.099999999999998, 5.949999999999998
+    )
     input_folder = get_input_folder()  # Get folder name from the user
     output_folder = get_output_folder()  # Get folder name from the user
-    process_video(input_folder)  # Process video and capture images
+    process_video(input_folder, z_plane=plane)  # Process video and capture images
