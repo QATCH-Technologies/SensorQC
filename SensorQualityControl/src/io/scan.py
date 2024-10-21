@@ -18,15 +18,9 @@ from mpl_toolkits.mplot3d import Axes3D
 Z_INITIAL = 9.0
 Z_RANGE = (5.5, 6.5)
 STEP_SIZE = 0.05
-CORNERS = {
-    "top_left": (108.2, 130.9),
-    "top_right": (117.7, 128.4),
-    "bottom_right": (117.2, 122.9),
-    "bottom_left": (110.2, 122.4),
-}
 # Define boundaries and movement deltas
 INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
-FINAL_POSITION = (117.2, 122.9, 5.94, 0.00)
+FINAL_POSITION = (119.2, 120.4, 5.94, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
