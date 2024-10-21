@@ -17,7 +17,7 @@ Supported Resolutions:
 - 2048 x 1536
 - 2582 x 1944
 """
-CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 2582, 1944, 30
+CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
 DEVICE_INDEX = 0
 # Camera index, please change it if you have more than one camera,
 # i.e. webcam, connected to your PC until CAM_INDEX is been set to first Dino-Lite product.
