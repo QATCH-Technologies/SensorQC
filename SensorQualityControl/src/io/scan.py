@@ -20,7 +20,7 @@ Z_RANGE = (5.5, 6.5)
 STEP_SIZE = 0.05
 # Define boundaries and movement deltas
 INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
-FINAL_POSITION = (119.2, 120.4, 5.94, 0.00)
+FINAL_POSITION = (119.2, 119.4, 5.94, 0.00)
 BATCH_NAME = ""
 SENSOR_HEIGHT = 10.85
 SENSOR_WIDTH = 11.35
@@ -46,8 +46,8 @@ scope.led_on(state=1)
 def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
     x_range = abs(X_MAX - X_MIN)
     y_range = abs(Y_MAX - Y_MIN)
-    rows = int(x_range // X_DELTA)
-    cols = int(y_range // -Y_DELTA)
+    rows = int(x_range // X_DELTA) + 1
+    cols = int(y_range // -Y_DELTA) + 1
     plane = np.zeros((rows, cols))
     for i in range(rows):
         # Linear interpolation between top-left and bottom-left (for left column)
@@ -108,7 +108,7 @@ def process_video(folder, z_plane):
         enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
     ):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
-            rob.go_to(x, y, z_plane[row_index - 1][col_index - 1])
+            rob.go_to(x, y, z_plane[row_index][col_index])
             if new_row:
                 time.sleep(2)
                 new_row = False
@@ -118,6 +118,7 @@ def process_video(folder, z_plane):
             tile += 1
         new_row = True
     rob.end()
+    scope.end()
 
 
 def get_input_folder():
