@@ -5,6 +5,7 @@ BAUDRATE = 115200
 COMMAND_TIME = 0.5
 FEED_RATE = 1000
 UNITS = "G21"
+HOME_TIME = 17
 
 
 class Robot:
@@ -18,6 +19,10 @@ class Robot:
             self.__serial__ = serial.Serial()
             self.__serial__.port = port
             self.__serial__.baudrate = baudrate
+
+    def home(self):
+        self.send_gcode("G28")
+        time.sleep(HOME_TIME)
 
     def send_gcode(self, command: str) -> str:
         if self.__serial__:
@@ -82,8 +87,7 @@ class Robot:
             response_1 = self.send_gcode(UNITS)
             if response_1.lower() == "ok":
                 return "ok"
-            raise IOError(
-                "Error during robot initialization; unrecognized command.")
+            raise IOError("Error during robot initialization; unrecognized command.")
         else:
             print("DEBUG MODE: start")
 

@@ -5,6 +5,7 @@ import numpy as np
 from dino_lite_edge import Camera, Microscope
 from robot import Robot
 
+HOMING_TIME = 17
 Z_INITIAL = 9.0
 Z_RANGE = (5.5, 6.5)
 STEP_SIZE = 0.05
@@ -14,12 +15,32 @@ CORNERS = {
     "bottom_right": (117.2, 122.9),
     "bottom_left": (110.2, 122.4),
 }
+INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
 scope = Microscope()
 cam = Camera(debug=False)
 rob = Robot(debug=False)
 rob.begin()
 rob.absolute_mode()
 scope.led_on(state=1)
+
+
+def init_params():
+    response = rob.send_gcode("G28")
+    print(response)
+    time.sleep(HOMING_TIME)
+    x, y, z, e = INITIAL_POSITION
+    rob.go_to(x, y, z)
+
+    # # Wait for the print head to reach the initial position
+    # while True:
+    #     response = rob.get_absolute_position()
+    #     if (
+    #         f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
+    #     ):  # Adjust this condition based on your G-code machine's feedback
+    #         break
+    # rob.absolute_mode()
+    print("Camera has reached the initial position.")
+    input("Enter to continue...")
 
 
 def calculate_laplacian_variance(image):
@@ -74,6 +95,7 @@ def calibrate_focus(corner_positions, z_range, step_size):
 if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
+    init_params()
     z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
     print("Calibration Results (Z-heights at corners):")
     print(z_height_results)
