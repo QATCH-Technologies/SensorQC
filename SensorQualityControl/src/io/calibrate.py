@@ -1,6 +1,5 @@
 import cv2
 import time
-import serial
 import numpy as np
 from dino_lite_edge import Camera, Microscope
 from robot import Robot
@@ -25,9 +24,6 @@ scope.led_on(state=1)
 
 
 def init_params():
-    response = rob.send_gcode("G28")
-    print(response)
-    time.sleep(HOMING_TIME)
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
 

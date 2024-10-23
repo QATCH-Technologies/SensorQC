@@ -8,7 +8,7 @@ UNITS = "G21"
 HOME_TIME = 17
 
 
-class Robot:
+class Robot(object):
     def __init__(
         self, port: str = "COM4", baudrate: int = BAUDRATE, debug: bool = False
     ) -> None:
@@ -86,8 +86,10 @@ class Robot:
             self.__serial__.open()
             response_1 = self.send_gcode(UNITS)
             if response_1.lower() == "ok":
+                self.home()
                 return "ok"
             raise IOError("Error during robot initialization; unrecognized command.")
+
         else:
             print("DEBUG MODE: start")
 
