@@ -94,9 +94,9 @@ class Controls:
             "Use WASD keys to move X/Y, mouse scroll to move Z, and Enter to get absolute position. Press Esc to quit."
         )
 
-        mouse.hook(
-            lambda e: self.on_scroll(e) if isinstance(e, mouse.WheelEvent) else None
-        )
+        # mouse.hook(
+        #     lambda e: self.on_scroll(e) if isinstance(e, mouse.WheelEvent) else None
+        # )
 
         # Set up key press and release events
         keyboard.on_press_key("a", lambda e: self.key_press("a"))
@@ -131,13 +131,13 @@ if __name__ == "__main__":
     scope = Microscope()
     scope.set_autoexposure(state=0)
 
-    print(scope.get_autoexposure())
+    # print(scope.get_autoexposure())
 
-    print(scope.get_fov_index())
-    print(scope.get_config())
-    scope.set_exposure(500)
-    print(scope.get_exposure())
+    # print(scope.get_fov_index())
+    # print(scope.get_config())
+    scope.set_exposure(828)
+    # print(scope.get_exposure())
     cam = Camera()
-    rob = Robot(debug=False)
+    rob = Robot(port="COM4", debug=False)
     controls = Controls(rob, cam, scope)
     controls.control()

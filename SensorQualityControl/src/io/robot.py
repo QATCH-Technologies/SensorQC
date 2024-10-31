@@ -5,7 +5,7 @@ BAUDRATE = 115200
 COMMAND_TIME = 0.5
 FEED_RATE = 1000
 UNITS = "G21"
-HOME_TIME = 17
+HOME_TIME = 20
 
 
 class Robot(object):
@@ -22,13 +22,20 @@ class Robot(object):
 
     def home(self):
         self.send_gcode("G28")
+
         time.sleep(HOME_TIME)
 
     def send_gcode(self, command: str) -> str:
         if self.__serial__:
+            buffer = self.__serial__.read_all()
+            if b"M999" in buffer:
+                print("Trying again due to failure...")
+                self.home()
+                return self.send_gcode(command)
             self.__serial__.write((command + "\n").encode())
             time.sleep(COMMAND_TIME)
             response = self.__serial__.readline().decode().strip()
+            print("Serial RX:", response)
             return response
         else:
             time.sleep(COMMAND_TIME)
