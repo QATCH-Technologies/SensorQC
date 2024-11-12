@@ -54,13 +54,16 @@ class Controls:
         print(f"Exposure: {scope.get_exposure()}")
         if key == "w" and not self.__axis_state__["Y"]:
             self.__axis_state__["Y"] = True
-            threading.Thread(target=self.move_up, args=(Y_STEP,), daemon=True).start()
+            threading.Thread(target=self.move_up, args=(
+                Y_STEP,), daemon=True).start()
         elif key == "s" and not self.__axis_state__["Y"]:
             self.__axis_state__["Y"] = True
-            threading.Thread(target=self.move_down, args=(Y_STEP,), daemon=True).start()
+            threading.Thread(target=self.move_down, args=(
+                Y_STEP,), daemon=True).start()
         elif key == "a" and not self.__axis_state__["X"]:
             self.__axis_state__["X"] = True
-            threading.Thread(target=self.move_left, args=(X_STEP,), daemon=True).start()
+            threading.Thread(target=self.move_left, args=(
+                X_STEP,), daemon=True).start()
         elif key == "d" and not self.__axis_state__["X"]:
             self.__axis_state__["X"] = True
             threading.Thread(
@@ -68,10 +71,12 @@ class Controls:
             ).start()
         elif key == "q" and not self.__axis_state__["Z"]:
             self.__axis_state__["Z"] = True
-            threading.Thread(target=self.zoom_in, args=(Z_STEP,), daemon=True).start()
+            threading.Thread(target=self.zoom_in, args=(
+                Z_STEP,), daemon=True).start()
         elif key == "e" and not self.__axis_state__["Z"]:
             self.__axis_state__["Z"] = True
-            threading.Thread(target=self.zoom_out, args=(Z_STEP,), daemon=True).start()
+            threading.Thread(target=self.zoom_out, args=(
+                Z_STEP,), daemon=True).start()
 
     def key_release(self, key):
         if key == "w" or key == "s":
@@ -112,7 +117,8 @@ class Controls:
         keyboard.on_release_key("d", lambda e: self.key_release("d"))
         keyboard.on_release_key("q", lambda e: self.key_release("q"))
         keyboard.on_release_key("e", lambda e: self.key_release("e"))
-        keyboard.on_press_key("enter", lambda e: self.__robot__.get_absolute_position())
+        keyboard.on_press_key(
+            "enter", lambda e: self.__robot__.get_absolute_position())
         keyboard.on_press_key("z", lambda e: self.__camera__.toggle_camera())
 
         keyboard.on_press_key("r", lambda e: self.__microscope__.led_off())

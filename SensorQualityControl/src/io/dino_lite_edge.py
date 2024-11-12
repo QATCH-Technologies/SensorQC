@@ -1,3 +1,8 @@
+from PIL import Image, ImageEnhance
+import matplotlib.pyplot as plt
+from skimage.transform import warp, AffineTransform
+from skimage import io, color
+import os
 import importlib
 import math
 import threading
@@ -6,6 +11,7 @@ import cv2
 from DNX64 import *
 import numpy as np
 import signal
+from scipy.ndimage import gaussian_filter1d
 
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
@@ -283,3 +289,8 @@ class Camera:
 
 if __name__ == "__main__":
     cam = Camera(debug=True)
+    # cam.capture_image('test_image')
+    # im = cv2.imread(r'C:\Users\paulm\dev\SensorQC\test_image.jpg')
+    # cam.vingeting_correction(im)
+    # cv2.imshow(im)
+    # # cam.capture_image('test_image')
