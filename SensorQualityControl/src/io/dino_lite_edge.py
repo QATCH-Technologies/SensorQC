@@ -5,6 +5,7 @@ import time
 import cv2
 from DNX64 import *
 import numpy as np
+import signal
 
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
@@ -64,6 +65,12 @@ class Microscope:
         self.__microscope__.SetEventCallback(self.microtouch)
         time.sleep(COMMAND_TIME)
         self.led_off()
+        signal.signal(signal.SIGINT, self._handle_exit)
+
+    def _handle_exit(self, signal, frame):
+        # Turn off the LED when the program is interrupted (Ctrl+C)
+        self.led_off()
+        exit(0)
 
     def enable_microtouch(self):
         return self.__microscope__.EnableMicroTouch(True)
@@ -150,7 +157,8 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(
+                DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
@@ -198,7 +206,15 @@ class Camera:
             self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
             self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
             self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        signal.signal(signal.SIGINT, self._handle_exit)
         self.running = False
+
+    def _handle_exit(self, signal, frame):
+        # Turn off the LED when the program is interrupted (Ctrl+C)
+        self.running = False
+        self.__camera__.release()
+        cv2.destroyAllWindows()
+        exit(0)
 
     def set_index(microscope):
         microscope.SetVideoDeviceIndex(0)
