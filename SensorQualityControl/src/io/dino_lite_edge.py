@@ -265,9 +265,11 @@ class Camera:
         # Perform flat field correction channel by channel
         corrected_image = sample_image / flat_field_image_resized[..., np.newaxis]
 
-        # Normalize the corrected image to the range [0, 255]
+        # # Normalize the corrected image to the range [0, 255]
         corrected_image = cv2.normalize(corrected_image, None, 0, 255, cv2.NORM_MINMAX)
         corrected_image = corrected_image.astype(np.uint8)
+        # Clip the corrected image values to stay within [0, 255] and convert to uint8
+        # corrected_image = np.clip(corrected_image, 0, 255).astype(np.uint8)
 
         return corrected_image
 

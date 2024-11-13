@@ -31,8 +31,26 @@ def generate_flat_field_image():
     """
     print("Capturing flat field images...")
     frame = cam.capture_image("calibration_image", calibration=True)
+    # Convert image to float for accurate division and avoid overflow
+    image = frame.astype(np.float32)
 
-    return frame
+    # Find the maximum pixel intensity
+    max_intensity = np.max(image)
+
+    # Avoid division by zero
+    if max_intensity == 0:
+        raise ValueError("Image is completely dark; maximum intensity is zero.")
+
+    # Scale image so that the brightest point becomes 1.0 (white)
+    calibrated_image = image / max_intensity
+
+    # Clip values to 1 to ensure they are in the range [0, 1]
+    calibrated_image = np.clip(calibrated_image, 0, 1)
+
+    # Optional: Convert back to 8-bit for standard image format, scaling up to 255
+    calibrated_image = (calibrated_image * 255).astype(np.uint8)
+
+    return calibrated_image
 
 
 def init_params():
@@ -104,7 +122,8 @@ if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
 
-    generate_flat_field_image()
+    image = generate_flat_field_image()
+    cv2.imwrite("calibration_image.jpg", image)
     init_params()
     z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
     print("Calibration Results (Z-heights at corners):")
