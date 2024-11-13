@@ -7,7 +7,7 @@ from PIL import Image
 
 HOMING_TIME = 17
 Z_INITIAL = 9.0
-Z_RANGE = (5.5, 6.5)
+Z_RANGE = (3.5, 6.5)
 STEP_SIZE = 0.05
 CORNERS = {
     "top_left": (108.2, 130.9),
@@ -16,33 +16,23 @@ CORNERS = {
     "bottom_left": (110.2, 122.4),
 }
 INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
-# scope = Microscope()
-# cam = Camera(debug=False)
-# rob = Robot(debug=False)
-# rob.begin()
-# rob.absolute_mode()
-# scope.led_on(state=1)
+scope = Microscope()
+cam = Camera(debug=False)
+rob = Robot(debug=False)
+rob.begin()
+rob.home()
+rob.absolute_mode()
+scope.led_on(state=1)
 
 
-def generate_flat_field_image(width, height, intensity=128):
+def generate_flat_field_image():
     """
     Generates a synthetic flat field image with uniform intensity.
-
-    Parameters:
-        width (int): Width of the image in pixels.
-        height (int): Height of the image in pixels.
-        intensity (int): Pixel intensity for the uniform image (0 to 255).
-
-    Returns:
-        Image: A flat field image with uniform brightness.
     """
-    # Create a numpy array filled with the specified intensity value
-    flat_field_array = np.full((height, width), intensity, dtype=np.uint8)
+    print("Capturing flat field images...")
+    frame = cam.capture_image("calibration_image", calibration=True)
 
-    # Convert the numpy array to a PIL Image
-    flat_field_image = Image.fromarray(flat_field_array)
-
-    return flat_field_image
+    return frame
 
 
 def init_params():
@@ -62,8 +52,7 @@ def init_params():
 
 
 def calculate_laplacian_variance(image):
-    gray_image = cv2.cvtColor(
-        image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
     # Apply Laplacian operator
     laplacian = cv2.Laplacian(gray_image, cv2.CV_64F)
     variance = laplacian.var()  # Compute the variance of the Laplacian
@@ -114,14 +103,11 @@ def calibrate_focus(corner_positions, z_range, step_size):
 if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
-    # init_params()
-    # z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
-    # print("Calibration Results (Z-heights at corners):")
-    # print(z_height_results)
-    width, height = 960, 540
-    intensity = 128  # Use an intensity of 128 for a medium brightness level
 
-    flat_field_image = generate_flat_field_image(width, height, intensity)
-    flat_field_image.show()  # Display the generated flat field image
-    # Save the flat field image if needed
-    flat_field_image.save("flat_field_image.jpg")
+    generate_flat_field_image()
+    init_params()
+    z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
+    print("Calibration Results (Z-heights at corners):")
+    print(z_height_results)
+    scope.end()
+    rob.end()

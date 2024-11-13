@@ -163,8 +163,7 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(
-                DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
@@ -212,15 +211,15 @@ class Camera:
             self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
             self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
             self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        signal.signal(signal.SIGINT, self._handle_exit)
+        # signal.signal(signal.SIGINT, self._handle_exit)
         self.running = False
 
-    def _handle_exit(self, signal, frame):
-        # Turn off the LED when the program is interrupted (Ctrl+C)
-        self.running = False
-        self.__camera__.release()
-        cv2.destroyAllWindows()
-        exit(0)
+    # def _handle_exit(self, signal, frame):
+    #     # Turn off the LED when the program is interrupted (Ctrl+C)
+    #     self.running = False
+    #     self.__camera__.release()
+    #     cv2.destroyAllWindows()
+    #     exit(0)
 
     def set_index(microscope):
         microscope.SetVideoDeviceIndex(0)
@@ -241,17 +240,18 @@ class Camera:
             numpy.ndarray: The flat-field-corrected RGB image.
         """
         # Load the flat field image in grayscale (since it's typically a single channel)
-        flat_field_image = cv2.imread(
-            flat_field_image_path, cv2.IMREAD_GRAYSCALE)
+        flat_field_image = cv2.imread(flat_field_image_path, cv2.IMREAD_GRAYSCALE)
 
         # Ensure flat field image is loaded correctly
         if flat_field_image is None:
             raise FileNotFoundError(
-                f"Flat field image not found at path: {flat_field_image_path}")
+                f"Flat field image not found at path: {flat_field_image_path}"
+            )
 
         # Resize the flat field image to match the sample image's dimensions
         flat_field_image_resized = cv2.resize(
-            flat_field_image, (sample_image.shape[1], sample_image.shape[0]))
+            flat_field_image, (sample_image.shape[1], sample_image.shape[0])
+        )
 
         # Convert images to float32 for accurate division
         sample_image = sample_image.astype(np.float32)
@@ -259,20 +259,19 @@ class Camera:
 
         # Prevent division by zero by setting minimum value of flat field image to 1
         flat_field_image_resized = np.where(
-            flat_field_image_resized == 0, 1, flat_field_image_resized)
+            flat_field_image_resized == 0, 1, flat_field_image_resized
+        )
 
         # Perform flat field correction channel by channel
-        corrected_image = sample_image / \
-            flat_field_image_resized[..., np.newaxis]
+        corrected_image = sample_image / flat_field_image_resized[..., np.newaxis]
 
         # Normalize the corrected image to the range [0, 255]
-        corrected_image = cv2.normalize(
-            corrected_image, None, 0, 255, cv2.NORM_MINMAX)
+        corrected_image = cv2.normalize(corrected_image, None, 0, 255, cv2.NORM_MINMAX)
         corrected_image = corrected_image.astype(np.uint8)
 
         return corrected_image
 
-    def capture_image(self, name: str = ""):
+    def capture_image(self, name: str, calibration: bool = False):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
 
@@ -284,10 +283,14 @@ class Camera:
             else:
                 filename = f"{name}.jpg"
             self.straighten_image(frame)
-            frame = self.flat_field_correction_rgb(
-                frame, r'C:\Users\paulm\dev\SensorQC\flat_field_image.jpg')
+            if not calibration:
+                frame = self.flat_field_correction_rgb(
+                    frame,
+                    r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\calibration_image.jpg",
+                )
             cv2.imwrite(filename, frame)
         self.running = False
+        return frame
 
     def process_frame(self, frame):
         height, width, _ = frame.shape
@@ -334,6 +337,6 @@ class Camera:
 
 if __name__ == "__main__":
     cam = Camera(debug=True)
-    cam.capture_image('test_image')
+    cam.capture_image("test_image")
     # im = cv2.imread(r'C:\Users\paulm\dev\SensorQC\test_image.jpg')
     # # cam.capture_image('test_image')

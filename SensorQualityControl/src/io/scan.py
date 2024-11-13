@@ -148,7 +148,7 @@ def get_output_folder():
 
 
 if __name__ == "__main__":
-    plane = interpolate_plane(4.6, 4.3, 4.3, 4.4)
+    plane = interpolate_plane(5.05, 4.89, 4.85, 4.95)
     input_folder = get_input_folder()  # Get folder name from the user
     output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder, z_plane=plane)  # Process video and capture images

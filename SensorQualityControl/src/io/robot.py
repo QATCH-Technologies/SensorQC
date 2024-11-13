@@ -21,8 +21,7 @@ class Robot(object):
             self.__serial__.baudrate = baudrate
 
     def home(self):
-        self.send_gcode("G28")
-
+        self.send_gcode("G28G29")
         time.sleep(HOME_TIME)
 
     def send_gcode(self, command: str) -> str:
@@ -93,8 +92,8 @@ class Robot(object):
             self.__serial__.open()
             response_1 = self.send_gcode(UNITS)
             if response_1.lower() == "ok":
-                self.home()
                 return "ok"
+
             raise IOError("Error during robot initialization; unrecognized command.")
 
         else:
