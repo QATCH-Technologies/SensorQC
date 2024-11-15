@@ -1,3 +1,8 @@
+from PIL import Image, ImageEnhance
+import matplotlib.pyplot as plt
+from skimage.transform import warp, AffineTransform
+from skimage import io, color
+import os
 import importlib
 import math
 import threading
@@ -5,6 +10,8 @@ import time
 import cv2
 from DNX64 import *
 import numpy as np
+import signal
+from scipy.ndimage import gaussian_filter1d
 
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
 # Global variables
@@ -64,6 +71,12 @@ class Microscope:
         self.__microscope__.SetEventCallback(self.microtouch)
         time.sleep(COMMAND_TIME)
         self.led_off()
+        signal.signal(signal.SIGINT, self._handle_exit)
+
+    def _handle_exit(self, signal, frame):
+        # Turn off the LED when the program is interrupted (Ctrl+C)
+        self.led_off()
+        exit(0)
 
     def enable_microtouch(self):
         return self.__microscope__.EnableMicroTouch(True)
@@ -199,15 +212,15 @@ class Camera:
             self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
             self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
             self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # signal.signal(signal.SIGINT, self._handle_exit)
         self.running = False
 
-    def set_index(self, microscope):
-        microscope.SetVideoDeviceIndex(0)
-        time.sleep(COMMAND_TIME)
-
-    def straighten_image(self, image):
-        return image
-
+    # def _handle_exit(self, signal, frame):
+    #     # Turn off the LED when the program is interrupted (Ctrl+C)
+    #     self.running = False
+    #     self.__camera__.release()
+    #     cv2.destroyAllWindows()
+    #     exit(0)
     def correct_luminance(self, image):
         # Convert to grayscale for luminance-based processing
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -222,7 +235,62 @@ class Camera:
 
         return image
 
-    def capture_image(self, name: str = ""):
+    def set_index(self, microscope):
+        microscope.SetVideoDeviceIndex(0)
+        time.sleep(COMMAND_TIME)
+
+    def straighten_image(self, image):
+        return image
+
+    def flat_field_correction_rgb(self, sample_image, flat_field_image_path):
+        """
+        Perform flat field correction on a sample RGB image using a flat field image.
+
+        Parameters:
+            sample_image (numpy.ndarray): The loaded sample image as a cv2 RGB image.
+            flat_field_image_path (str): Path to the flat field image (should be grayscale).
+
+        Returns:
+            numpy.ndarray: The flat-field-corrected RGB image.
+        """
+        # Load the flat field image in grayscale (since it's typically a single channel)
+        flat_field_image = cv2.imread(
+            flat_field_image_path, cv2.IMREAD_GRAYSCALE)
+
+        # Ensure flat field image is loaded correctly
+        if flat_field_image is None:
+            raise FileNotFoundError(
+                f"Flat field image not found at path: {flat_field_image_path}"
+            )
+
+        # Resize the flat field image to match the sample image's dimensions
+        flat_field_image_resized = cv2.resize(
+            flat_field_image, (sample_image.shape[1], sample_image.shape[0])
+        )
+
+        # Convert images to float32 for accurate division
+        sample_image = sample_image.astype(np.float32)
+        flat_field_image_resized = flat_field_image_resized.astype(np.float32)
+
+        # Prevent division by zero by setting minimum value of flat field image to 1
+        flat_field_image_resized = np.where(
+            flat_field_image_resized == 0, 1, flat_field_image_resized
+        )
+
+        # Perform flat field correction channel by channel
+        corrected_image = sample_image / \
+            flat_field_image_resized[..., np.newaxis]
+
+        # # Normalize the corrected image to the range [0, 255]
+        corrected_image = cv2.normalize(
+            corrected_image, None, 0, 255, cv2.NORM_MINMAX)
+        corrected_image = corrected_image.astype(np.uint8)
+        # Clip the corrected image values to stay within [0, 255] and convert to uint8
+        # corrected_image = np.clip(corrected_image, 0, 255).astype(np.uint8)
+
+        return corrected_image
+
+    def capture_image(self, name: str, calibration: bool = False):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
 
@@ -237,6 +305,7 @@ class Camera:
             frame = self.correct_luminance(frame)
             cv2.imwrite(filename, frame)
         self.running = False
+        return frame
 
     def process_frame(self, frame):
         height, width, _ = frame.shape
@@ -283,3 +352,6 @@ class Camera:
 
 if __name__ == "__main__":
     cam = Camera(debug=True)
+    cam.capture_image("test_image")
+    # im = cv2.imread(r'C:\Users\paulm\dev\SensorQC\test_image.jpg')
+    # # cam.capture_image('test_image')

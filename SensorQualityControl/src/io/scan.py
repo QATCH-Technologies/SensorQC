@@ -36,7 +36,7 @@ SCALE_FACTOR = 1
 
 scope = Microscope()
 cam = Camera()
-rob = Robot(debug=False)
+rob = Robot(port="COM4", debug=False)
 rob.begin()
 rob.absolute_mode()
 scope.disable_microtouch()
@@ -83,14 +83,16 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
 def init_params():
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
+    scope.set_autoexposure(0)
+    scope.set_exposure(828)
 
     # Wait for the print head to reach the initial position
-    while True:
-        response = rob.get_absolute_position()
-        if (
-            f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
-        ):  # Adjust this condition based on your G-code machine's feedback
-            break
+    # while True:
+    #     response = rob.get_absolute_position()
+    #     if (
+    #         f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
+    #     ):  # Adjust this condition based on your G-code machine's feedback
+    #         break
     rob.absolute_mode()
     print("Camera has reached the initial position.")
     input("Enter to continue...")
@@ -146,9 +148,7 @@ def get_output_folder():
 
 
 if __name__ == "__main__":
-    plane = interpolate_plane(
-        6.1999999999999975, 5.999999999999998, 6.099999999999998, 5.949999999999998
-    )
+    plane = interpolate_plane(5.05, 4.89, 4.85, 4.95)
     input_folder = get_input_folder()  # Get folder name from the user
     output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder, z_plane=plane)  # Process video and capture images

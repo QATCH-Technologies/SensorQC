@@ -3,10 +3,11 @@ import time
 import numpy as np
 from dino_lite_edge import Camera, Microscope
 from robot import Robot
+from PIL import Image
 
 HOMING_TIME = 17
 Z_INITIAL = 9.0
-Z_RANGE = (5.5, 6.5)
+Z_RANGE = (3.5, 6.5)
 STEP_SIZE = 0.05
 CORNERS = {
     "top_left": (108.2, 130.9),
@@ -19,8 +20,37 @@ scope = Microscope()
 cam = Camera(debug=False)
 rob = Robot(debug=False)
 rob.begin()
+rob.home()
 rob.absolute_mode()
 scope.led_on(state=1)
+
+
+def generate_flat_field_image():
+    """
+    Generates a synthetic flat field image with uniform intensity.
+    """
+    print("Capturing flat field images...")
+    frame = cam.capture_image("calibration_image", calibration=True)
+    # Convert image to float for accurate division and avoid overflow
+    image = frame.astype(np.float32)
+
+    # Find the maximum pixel intensity
+    max_intensity = np.max(image)
+
+    # Avoid division by zero
+    if max_intensity == 0:
+        raise ValueError("Image is completely dark; maximum intensity is zero.")
+
+    # Scale image so that the brightest point becomes 1.0 (white)
+    calibrated_image = image / max_intensity
+
+    # Clip values to 1 to ensure they are in the range [0, 1]
+    calibrated_image = np.clip(calibrated_image, 0, 1)
+
+    # Optional: Convert back to 8-bit for standard image format, scaling up to 255
+    calibrated_image = (calibrated_image * 255).astype(np.uint8)
+
+    return calibrated_image
 
 
 def init_params():
@@ -91,7 +121,12 @@ def calibrate_focus(corner_positions, z_range, step_size):
 if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
+
+    image = generate_flat_field_image()
+    cv2.imwrite("calibration_image.jpg", image)
     init_params()
     z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
     print("Calibration Results (Z-heights at corners):")
     print(z_height_results)
+    scope.end()
+    rob.end()
