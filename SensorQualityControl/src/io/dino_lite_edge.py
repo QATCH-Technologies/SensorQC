@@ -242,17 +242,14 @@ class Camera:
     def straighten_image(self, image):
         return image
 
-    def flat_field_correction_rgb(self, sample_image, flat_field_image_path):
-        """
-        Perform flat field correction on a sample RGB image using a flat field image.
-
-        Parameters:
-            sample_image (numpy.ndarray): The loaded sample image as a cv2 RGB image.
-            flat_field_image_path (str): Path to the flat field image (should be grayscale).
-
-        Returns:
-            numpy.ndarray: The flat-field-corrected RGB image.
-        """
+    def flatfield_correction(self,
+                             sample_image,
+                             flat_field_image_path,
+                             dark_field,
+                             channel_to_df_idx,
+                             channel_fields,
+                             avg_channel_gains,
+                             flat_start=0,):
         # Load the flat field image in grayscale (since it's typically a single channel)
         flat_field_image = cv2.imread(
             flat_field_image_path, cv2.IMREAD_GRAYSCALE)
@@ -260,33 +257,58 @@ class Camera:
         # Ensure flat field image is loaded correctly
         if flat_field_image is None:
             raise FileNotFoundError(
-                f"Flat field image not found at path: {flat_field_image_path}"
-            )
+                f"Flat field image not found at path: {flat_field_image_path}")
 
         # Resize the flat field image to match the sample image's dimensions
         flat_field_image_resized = cv2.resize(
-            flat_field_image, (sample_image.shape[1], sample_image.shape[0])
-        )
+            flat_field_image, (sample_image.shape[1], sample_image.shape[0]))
 
-        # Convert images to float32 for accurate division
+        # Convert sample and flat field images to float32 for accurate division
         sample_image = sample_image.astype(np.float32)
         flat_field_image_resized = flat_field_image_resized.astype(np.float32)
 
         # Prevent division by zero by setting minimum value of flat field image to 1
         flat_field_image_resized = np.where(
-            flat_field_image_resized == 0, 1, flat_field_image_resized
-        )
+            flat_field_image_resized == 0, 1, flat_field_image_resized)
+
+        # Initialize the corrected image
+        corrected_image = np.zeros_like(sample_image)
 
         # Perform flat field correction channel by channel
-        corrected_image = sample_image / \
-            flat_field_image_resized[..., np.newaxis]
+        # Assuming sample_image is 3D (H, W, C) or 2D (H, W)
+        num_channels = sample_image.shape[2] if len(
+            sample_image.shape) > 2 else 1
+        for channel in range(num_channels):
+            # Use the corresponding dark field value for each channel (dark_field is assumed to be a list or array of dark field images for each channel)
+            this_slice = sample_image[..., channel] - \
+                dark_field[channel_to_df_idx[channel]]
 
-        # # Normalize the corrected image to the range [0, 255]
+            # Ensure no negative values after dark field subtraction
+            this_slice[this_slice < 0] = 0
+
+            # Normalize by flat field and scale by the corresponding gains
+            # slice_idx assumed to be 0 here
+            this_slice /= channel_fields[channel][min(
+                (flat_start + 0), channel_fields[channel].shape[0] - 1)]
+            # slice_idx assumed to be 0 here
+            this_slice *= avg_channel_gains[channel][min(
+                (flat_start + 0), avg_channel_gains[channel].shape[0] - 1)]
+
+            # Clip values to stay within [0, 255]
+            this_slice[this_slice > 255] = 255
+            this_slice[this_slice < 0] = 0
+
+            # Store the corrected slice back into the corrected_image
+            corrected_image[..., channel] = this_slice
+
+        # If the image is single channel (2D), convert it to 3D for consistency
+        if len(corrected_image.shape) == 2:
+            corrected_image = corrected_image[..., np.newaxis]
+
+        # Normalize the corrected image to the range [0, 255]
         corrected_image = cv2.normalize(
             corrected_image, None, 0, 255, cv2.NORM_MINMAX)
         corrected_image = corrected_image.astype(np.uint8)
-        # Clip the corrected image values to stay within [0, 255] and convert to uint8
-        # corrected_image = np.clip(corrected_image, 0, 255).astype(np.uint8)
 
         return corrected_image
 
@@ -301,9 +323,38 @@ class Camera:
                 filename = f"image_{timestamp}.jpg"
             else:
                 filename = f"{name}.jpg"
-            self.straighten_image(frame)
-            frame = self.correct_luminance(frame)
-            cv2.imwrite(filename, frame)
+            # Replace with actual path
+            flat_field_image_path = r'C:\Users\QATCH\dev\SensorQC\SensorQualityControl\calibration_image.jpg'
+            dark_field_image_path = 'path_to_dark_field_image.jpg'
+            # Channel to dark field index mapping
+            channel_to_df_idx = {0: 0, 1: 1, 2: 2}
+
+            # Channel field data (example)
+            channel_fields = {
+                0: np.random.rand(10),
+                1: np.random.rand(10),
+                2: np.random.rand(10)
+            }
+
+            # Channel gain data (example)
+            avg_channel_gains = {
+                0: np.random.rand(10),
+                1: np.random.rand(10),
+                2: np.random.rand(10)
+            }
+
+            # Call the function
+            corrected_image = self.flatfield_correction(
+                frame,
+                flat_field_image_path,
+                dark_field_image_path,
+                channel_to_df_idx,
+                channel_fields,
+                avg_channel_gains,
+                flat_start=0  # Optionally set flat_start if needed
+            )
+
+            cv2.imwrite(filename, corrected_image)
         self.running = False
         return frame
 
