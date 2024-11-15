@@ -150,7 +150,8 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(
+                DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
@@ -200,11 +201,25 @@ class Camera:
             self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
 
-    def set_index(microscope):
+    def set_index(self, microscope):
         microscope.SetVideoDeviceIndex(0)
         time.sleep(COMMAND_TIME)
 
     def straighten_image(self, image):
+        return image
+
+    def correct_luminance(self, image):
+        # Convert to grayscale for luminance-based processing
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Apply histogram equalization to improve contrast
+        equalized = cv2.equalizeHist(gray)
+
+        # Merge back the channels if needed (keeping the original colors)
+        image[:, :, 0] = equalized
+        image[:, :, 1] = equalized
+        image[:, :, 2] = equalized
+
         return image
 
     def capture_image(self, name: str = ""):
@@ -219,6 +234,7 @@ class Camera:
             else:
                 filename = f"{name}.jpg"
             self.straighten_image(frame)
+            frame = self.correct_luminance(frame)
             cv2.imwrite(filename, frame)
         self.running = False
 
