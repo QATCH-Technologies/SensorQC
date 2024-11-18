@@ -59,7 +59,7 @@ def generate_dark_field_image():
     Generates a synthetic dark field image with uniform intensity.
     """
     print("Capturing dark field images...")
-    scope.led_on(state=2)
+    scope.led_off()
     time.sleep(5)
     frame = cam.capture_image("dark_field_image", calibration=True)
     # Convert image to float for accurate division and avoid overflow

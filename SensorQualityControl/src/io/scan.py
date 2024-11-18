@@ -81,6 +81,7 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
 
 
 def init_params():
+    rob.home()
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
     scope.set_autoexposure(0)
