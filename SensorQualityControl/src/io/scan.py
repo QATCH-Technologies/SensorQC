@@ -40,7 +40,7 @@ rob = Robot(port="COM4", debug=False)
 rob.begin()
 rob.absolute_mode()
 scope.disable_microtouch()
-scope.led_on(state=2)
+scope.led_on(state=1)
 
 
 def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
@@ -76,16 +76,16 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         ax.set_zlabel("Z")
         plt.show()
 
-    plot_plane(plane)
+    # plot_plane(plane)
     return plane
 
 
 def init_params():
-    rob.home()
+    # rob.home()
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
-    # scope.set_autoexposure(0)
-    # scope.set_exposure(828)
+    scope.set_autoexposure(0)
+    scope.set_exposure(828)
 
     # Wait for the print head to reach the initial position
     # while True:
@@ -117,7 +117,9 @@ def process_video(folder, z_plane):
                 new_row = False
             else:
                 time.sleep(0.2)
-            cam.capture_image(name=f"{folder}\\tile_{tile}")
+            cam.capture_image(name=f"{folder}\\tile_{tile}", calibration=True)
+            cam.capture_image(name=f"{folder}\\tile_{tile}", calibration=False)
+
             tile += 1
         new_row = True
     rob.end()
@@ -126,7 +128,7 @@ def process_video(folder, z_plane):
 
 def get_input_folder():
     # Define the folder path
-    folder = os.path.join("content", "images", "df_gs")
+    folder = os.path.join("content", "images", "l1_bf_c")
     if os.path.exists(folder):
         return folder
     else:

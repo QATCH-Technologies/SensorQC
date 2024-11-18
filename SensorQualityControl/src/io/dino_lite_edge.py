@@ -274,40 +274,41 @@ class Camera:
         # Avoid division by zero
         flat_field_image_resized[flat_field_image_resized == 0] = 1
 
-        sample_image_gray = cv2.cvtColor(sample_image, cv2.COLOR_BGR2GRAY)
+        # Handle grayscale vs. multi-channel
+        if len(sample_image.shape) == 2:  # Grayscale
+            corrected_image = sample_image - dark_field_image_resized
+            corrected_image /= flat_field_image_resized
+        elif len(sample_image.shape) == 3:  # Multi-channel
+            # Expand flat and dark field images to match the number of channels
+            flat_field_image_resized_3d = np.repeat(
+                flat_field_image_resized[:, :, np.newaxis],
+                sample_image.shape[2],
+                axis=2,
+            )
+            dark_field_image_resized_3d = np.repeat(
+                dark_field_image_resized[:, :, np.newaxis],
+                sample_image.shape[2],
+                axis=2,
+            )
 
-        corrected_image = sample_image_gray - dark_field_image_resized
-        corrected_image[corrected_image < 0] = 0  # Clip negatives
-        corrected_image /= flat_field_image_resized
+            corrected_image = sample_image - dark_field_image_resized_3d
+            corrected_image /= flat_field_image_resized_3d
+
+        # Clip negatives and normalize
+        corrected_image[corrected_image < 0] = 0  # Remove negatives
         corrected_image[corrected_image > 255] = 255  # Clip to valid range
 
         # Normalize to range [0, 255] and convert to uint8
-        corrected_image = cv2.normalize(corrected_image, None, 0, 255, cv2.NORM_MINMAX)
+        corrected_image = cv2.normalize(
+            corrected_image,
+            None,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_L1,
+        )
         corrected_image = corrected_image.astype(np.uint8)
 
         return corrected_image
-
-    def flatfield_correction_v2(
-        self,
-        sample_image,
-        flat_field_image_path,
-    ):
-        with fits.open(flat_field_image_path) as hdul:
-            flat_data = hdul[0].data
-
-        # Ensure the flat-field data has the same shape as the input image
-        if sample_image.shape != flat_data.shape:
-            raise ValueError(
-                f"Shape mismatch: sample_image {sample_image.shape} vs flat_data {flat_data.shape}"
-            )
-
-        # Apply flat-field correction
-        corrected_data = sample_image / flat_data
-
-        # Handle division by zero or invalid values
-        corrected_data = np.nan_to_num(corrected_data, nan=0.0, posinf=0.0, neginf=0.0)
-
-        return corrected_data
 
     def capture_image(self, name: str, calibration: bool = False):
         """Capture an image and save it in the current working directory."""
@@ -324,25 +325,6 @@ class Camera:
             if not calibration:
                 flat_field_image_path = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\flat_field_image.jpg"
                 dark_field_image_path = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\dark_field_image.jpg"
-                # Channel to dark field index mapping
-                channel_to_df_idx = {0: 0, 1: 1, 2: 2}
-
-                # Channel field data (example)
-                channel_fields = {
-                    0: np.random.rand(10),
-                    1: np.random.rand(10),
-                    2: np.random.rand(10),
-                }
-
-                # Channel gain data (example)
-                avg_channel_gains = {
-                    0: np.random.rand(10),
-                    1: np.random.rand(10),
-                    2: np.random.rand(10),
-                }
-
-                # Call the function
-                hdu = fits.PrimaryHDU(frame)
                 corrected_image = self.flatfield_correction_grayscale(
                     frame,
                     flat_field_image_path,

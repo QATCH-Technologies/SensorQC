@@ -28,7 +28,7 @@ def generate_flat_field_image():
     """
     Generates a synthetic flat field image with uniform intensity.
     """
-    scope.led_on(state=2)
+    scope.led_on(state=1)
     time.sleep(5)
     print("Capturing flat field images...")
     frame = cam.capture_image("flat_field_image", calibration=True)
