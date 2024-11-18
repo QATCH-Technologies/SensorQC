@@ -312,6 +312,27 @@ class Camera:
 
         return corrected_image
 
+    def flatfield_correction_v2(self,
+                                sample_image,
+                                flat_field_image_path,):
+        from astropy.io import fits
+        with fits.open(flat_field_image_path) as hdul:
+            flat_data = hdul[0].data
+
+         # Ensure the flat-field data has the same shape as the input image
+        if sample_image.shape != flat_data.shape:
+            raise ValueError(
+                f"Shape mismatch: sample_image {sample_image.shape} vs flat_data {flat_data.shape}")
+
+        # Apply flat-field correction
+        corrected_data = sample_image / flat_data
+
+        # Handle division by zero or invalid values
+        corrected_data = np.nan_to_num(
+            corrected_data, nan=0.0, posinf=0.0, neginf=0.0)
+
+        return corrected_data
+
     def capture_image(self, name: str, calibration: bool = False):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
@@ -344,14 +365,14 @@ class Camera:
             }
 
             # Call the function
-            corrected_image = self.flatfield_correction(
+            corrected_image = self.flatfield_correction_v2(
                 frame,
                 flat_field_image_path,
-                dark_field_image_path,
-                channel_to_df_idx,
-                channel_fields,
-                avg_channel_gains,
-                flat_start=0  # Optionally set flat_start if needed
+                # dark_field_image_path,
+                # channel_to_df_idx,
+                # channel_fields,
+                # avg_channel_gains,
+                # flat_start=0  # Optionally set flat_start if needed
             )
 
             cv2.imwrite(filename, corrected_image)
