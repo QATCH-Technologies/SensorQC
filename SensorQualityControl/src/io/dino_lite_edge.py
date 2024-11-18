@@ -11,6 +11,8 @@ import cv2
 from DNX64 import *
 import numpy as np
 import signal
+from astropy.io import fits
+
 from scipy.ndimage import gaussian_filter1d
 
 DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
@@ -241,27 +243,22 @@ class Camera:
     def straighten_image(self, image):
         return image
 
-    def flatfield_correction(
+    def flatfield_correction_grayscale(
         self,
         sample_image,
         flat_field_image_path,
         dark_field_image_path,
-        channel_to_df_idx,
-        channel_fields,
-        avg_channel_gains,
-        flat_start=0,
     ):
-        # Load the flat field image in grayscale (since it's typically a single channel)
+        # Load the flat field and dark field images in grayscale
         flat_field_image = cv2.imread(flat_field_image_path, cv2.IMREAD_GRAYSCALE)
         dark_field_image = cv2.imread(dark_field_image_path, cv2.IMREAD_GRAYSCALE)
 
-        # Ensure flat field image is loaded correctly
-        if flat_field_image is None:
+        if flat_field_image is None or dark_field_image is None:
             raise FileNotFoundError(
-                f"Flat field image not found at path: {flat_field_image_path}"
+                f"Flat or dark field image not found. Check paths: {flat_field_image_path}, {dark_field_image_path}"
             )
 
-        # Resize the flat field image to match the sample image's dimensions
+        # Resize the flat and dark field images to match the sample image's dimensions
         flat_field_image_resized = cv2.resize(
             flat_field_image, (sample_image.shape[1], sample_image.shape[0])
         )
@@ -269,58 +266,48 @@ class Camera:
             dark_field_image, (sample_image.shape[1], sample_image.shape[0])
         )
 
-        # Convert sample and flat field images to float32 for accurate division
+        # Convert images to float32
         sample_image = sample_image.astype(np.float32)
         flat_field_image_resized = flat_field_image_resized.astype(np.float32)
         dark_field_image_resized = dark_field_image_resized.astype(np.float32)
 
-        # Prevent division by zero by setting minimum value of flat field image to 1
-        flat_field_image_resized = np.where(
-            flat_field_image_resized == 0, 1, flat_field_image_resized
-        )
+        # Avoid division by zero
+        flat_field_image_resized[flat_field_image_resized == 0] = 1
 
-        # Initialize the corrected image
-        corrected_image = np.zeros_like(sample_image)
+        sample_image_gray = cv2.cvtColor(sample_image, cv2.COLOR_BGR2GRAY)
 
-        # Perform flat field correction channel by channel
-        # Assuming sample_image is 3D (H, W, C) or 2D (H, W)
-        num_channels = sample_image.shape[2] if len(sample_image.shape) > 2 else 1
-        for channel in range(num_channels):
-            # Use the corresponding dark field value for each channel (dark_field is assumed to be a list or array of dark field images for each channel)
-            this_slice = (
-                sample_image[..., channel]
-                - dark_field_image_resized[channel_to_df_idx[channel]]
-            )
+        corrected_image = sample_image_gray - dark_field_image_resized
+        corrected_image[corrected_image < 0] = 0  # Clip negatives
+        corrected_image /= flat_field_image_resized
+        corrected_image[corrected_image > 255] = 255  # Clip to valid range
 
-            # Ensure no negative values after dark field subtraction
-            this_slice[this_slice < 0] = 0
-
-            # Normalize by flat field and scale by the corresponding gains
-            # slice_idx assumed to be 0 here
-            this_slice /= channel_fields[channel][
-                min((flat_start + 0), channel_fields[channel].shape[0] - 1)
-            ]
-            # slice_idx assumed to be 0 here
-            this_slice *= avg_channel_gains[channel][
-                min((flat_start + 0), avg_channel_gains[channel].shape[0] - 1)
-            ]
-
-            # Clip values to stay within [0, 255]
-            this_slice[this_slice > 255] = 255
-            this_slice[this_slice < 0] = 0
-
-            # Store the corrected slice back into the corrected_image
-            corrected_image[..., channel] = this_slice
-
-        # If the image is single channel (2D), convert it to 3D for consistency
-        if len(corrected_image.shape) == 2:
-            corrected_image = corrected_image[..., np.newaxis]
-
-        # Normalize the corrected image to the range [0, 255]
+        # Normalize to range [0, 255] and convert to uint8
         corrected_image = cv2.normalize(corrected_image, None, 0, 255, cv2.NORM_MINMAX)
         corrected_image = corrected_image.astype(np.uint8)
 
         return corrected_image
+
+    def flatfield_correction_v2(
+        self,
+        sample_image,
+        flat_field_image_path,
+    ):
+        with fits.open(flat_field_image_path) as hdul:
+            flat_data = hdul[0].data
+
+        # Ensure the flat-field data has the same shape as the input image
+        if sample_image.shape != flat_data.shape:
+            raise ValueError(
+                f"Shape mismatch: sample_image {sample_image.shape} vs flat_data {flat_data.shape}"
+            )
+
+        # Apply flat-field correction
+        corrected_data = sample_image / flat_data
+
+        # Handle division by zero or invalid values
+        corrected_data = np.nan_to_num(corrected_data, nan=0.0, posinf=0.0, neginf=0.0)
+
+        return corrected_data
 
     def capture_image(self, name: str, calibration: bool = False):
         """Capture an image and save it in the current working directory."""
@@ -354,19 +341,17 @@ class Camera:
                     2: np.random.rand(10),
                 }
 
-                # Call the function
-
-                corrected_image = self.flatfield_correction(
-                    frame,
-                    flat_field_image_path,
-                    dark_field_image_path,
-                    channel_to_df_idx,
-                    channel_fields,
-                    avg_channel_gains,
-                    flat_start=0,  # Optionally set flat_start if needed
-                )
-            else:
-                corrected_image = frame
+            # Call the function
+            hdu = fits.PrimaryHDU(frame)
+            corrected_image = self.flatfield_correction_grayscale(
+                frame,
+                flat_field_image_path,
+                dark_field_image_path,
+                # channel_to_df_idx,
+                # channel_fields,
+                # avg_channel_gains,
+                # flat_start=0  # Optionally set flat_start if needed
+            )
 
             cv2.imwrite(filename, corrected_image)
         self.running = False
