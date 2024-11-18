@@ -22,13 +22,14 @@ rob = Robot(debug=False)
 rob.begin()
 rob.home()
 rob.absolute_mode()
-scope.led_on(state=1)
 
 
 def generate_flat_field_image():
     """
     Generates a synthetic flat field image with uniform intensity.
     """
+    scope.led_on(state=1)
+    time.sleep(5)
     print("Capturing flat field images...")
     frame = cam.capture_image("flat_field_image", calibration=True)
     # Convert image to float for accurate division and avoid overflow
@@ -153,11 +154,13 @@ def calibrate_focus(corner_positions, z_range, step_size):
 if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
+    scope.led_off()
 
     ff_image = generate_flat_field_image()
     df_image = generate_dark_field_image()
     cv2.imwrite("flat_field_image.jpg", ff_image)
     cv2.imwrite("dark_field_image.jpg", df_image)
+    scope.end()
     # init_params()
     # z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
     # print("Calibration Results (Z-heights at corners):")
