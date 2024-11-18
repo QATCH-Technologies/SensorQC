@@ -40,7 +40,7 @@ rob = Robot(port="COM4", debug=False)
 rob.begin()
 rob.absolute_mode()
 scope.disable_microtouch()
-scope.led_on(state=1)
+scope.led_on(state=2)
 
 
 def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
@@ -84,8 +84,8 @@ def init_params():
     rob.home()
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
-    scope.set_autoexposure(0)
-    scope.set_exposure(828)
+    # scope.set_autoexposure(0)
+    # scope.set_exposure(828)
 
     # Wait for the print head to reach the initial position
     # while True:
@@ -126,7 +126,7 @@ def process_video(folder, z_plane):
 
 def get_input_folder():
     # Define the folder path
-    folder = os.path.join("content", "images", "raw_images")
+    folder = os.path.join("content", "images", "df_gs")
     if os.path.exists(folder):
         return folder
     else:

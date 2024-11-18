@@ -341,18 +341,19 @@ class Camera:
                     2: np.random.rand(10),
                 }
 
-            # Call the function
-            hdu = fits.PrimaryHDU(frame)
-            corrected_image = self.flatfield_correction_grayscale(
-                frame,
-                flat_field_image_path,
-                dark_field_image_path,
-                # channel_to_df_idx,
-                # channel_fields,
-                # avg_channel_gains,
-                # flat_start=0  # Optionally set flat_start if needed
-            )
-
+                # Call the function
+                hdu = fits.PrimaryHDU(frame)
+                corrected_image = self.flatfield_correction_grayscale(
+                    frame,
+                    flat_field_image_path,
+                    dark_field_image_path,
+                    # channel_to_df_idx,
+                    # channel_fields,
+                    # avg_channel_gains,
+                    # flat_start=0  # Optionally set flat_start if needed
+                )
+            else:
+                corrected_image = frame
             cv2.imwrite(filename, corrected_image)
         self.running = False
         return frame
