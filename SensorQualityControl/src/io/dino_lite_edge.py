@@ -240,77 +240,7 @@ class Camera:
         microscope.SetVideoDeviceIndex(0)
         time.sleep(COMMAND_TIME)
 
-    def straighten_image(self, image):
-        return image
-
-    def flatfield_correction_grayscale(
-        self,
-        sample_image,
-        flat_field_image_path,
-        dark_field_image_path,
-    ):
-        # Load the flat field and dark field images in grayscale
-        flat_field_image = cv2.imread(flat_field_image_path, cv2.IMREAD_GRAYSCALE)
-        dark_field_image = cv2.imread(dark_field_image_path, cv2.IMREAD_GRAYSCALE)
-
-        if flat_field_image is None or dark_field_image is None:
-            raise FileNotFoundError(
-                f"Flat or dark field image not found. Check paths: {flat_field_image_path}, {dark_field_image_path}"
-            )
-
-        # Resize the flat and dark field images to match the sample image's dimensions
-        flat_field_image_resized = cv2.resize(
-            flat_field_image, (sample_image.shape[1], sample_image.shape[0])
-        )
-        dark_field_image_resized = cv2.resize(
-            dark_field_image, (sample_image.shape[1], sample_image.shape[0])
-        )
-
-        # Convert images to float32
-        sample_image = sample_image.astype(np.float32)
-        flat_field_image_resized = flat_field_image_resized.astype(np.float32)
-        dark_field_image_resized = dark_field_image_resized.astype(np.float32)
-
-        # Avoid division by zero
-        flat_field_image_resized[flat_field_image_resized == 0] = 1
-
-        # Handle grayscale vs. multi-channel
-        if len(sample_image.shape) == 2:  # Grayscale
-            corrected_image = sample_image - dark_field_image_resized
-            corrected_image /= flat_field_image_resized
-        elif len(sample_image.shape) == 3:  # Multi-channel
-            # Expand flat and dark field images to match the number of channels
-            flat_field_image_resized_3d = np.repeat(
-                flat_field_image_resized[:, :, np.newaxis],
-                sample_image.shape[2],
-                axis=2,
-            )
-            dark_field_image_resized_3d = np.repeat(
-                dark_field_image_resized[:, :, np.newaxis],
-                sample_image.shape[2],
-                axis=2,
-            )
-
-            corrected_image = sample_image - dark_field_image_resized_3d
-            corrected_image /= flat_field_image_resized_3d
-
-        # Clip negatives and normalize
-        corrected_image[corrected_image < 0] = 0  # Remove negatives
-        corrected_image[corrected_image > 255] = 255  # Clip to valid range
-
-        # Normalize to range [0, 255] and convert to uint8
-        corrected_image = cv2.normalize(
-            corrected_image,
-            None,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_L1,
-        )
-        corrected_image = corrected_image.astype(np.uint8)
-
-        return corrected_image
-
-    def capture_image(self, name: str, calibration: bool = False):
+    def capture_image(self, name: str):
         """Capture an image and save it in the current working directory."""
         status, frame = self.__camera__.read()
 
@@ -321,22 +251,7 @@ class Camera:
                 filename = f"image_{timestamp}.jpg"
             else:
                 filename = f"{name}.jpg"
-            # Replace with actual path
-            if not calibration:
-                flat_field_image_path = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\flat_field_image.jpg"
-                dark_field_image_path = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\dark_field_image.jpg"
-                corrected_image = self.flatfield_correction_grayscale(
-                    frame,
-                    flat_field_image_path,
-                    dark_field_image_path,
-                    # channel_to_df_idx,
-                    # channel_fields,
-                    # avg_channel_gains,
-                    # flat_start=0  # Optionally set flat_start if needed
-                )
-            else:
-                corrected_image = frame
-            cv2.imwrite(filename, corrected_image)
+            cv2.imwrite(filename, frame)
         self.running = False
         return frame
 

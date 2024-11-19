@@ -1,70 +1,92 @@
-from PIL import Image, ImageEnhance
+import numpy as np
+import cv2
 import os
-from glob import glob
-
-# Directory containing images
-image_directory = r'C:\Users\paulm\dev\SensorQC\SensorQualityControl\content\images\raw_images'
 
 
-def gamma_correction(image, gamma=1.2):
-    # Apply gamma correction
-    inv_gamma = 1.0 / gamma
-    lut = [int((i / 255.0) ** inv_gamma * 255) for i in range(256)]
-    return image.point(lut * 3)
+def load_images_from_directory(directory, file_extension="jpg"):
+    """
+    Load all images with a given extension from a directory.
+
+    Parameters:
+    - directory (str): Path to the directory containing images.
+    - file_extension (str): File extension to filter images (default: "jpg").
+
+    Returns:
+    - images (list of numpy arrays): List of loaded images.
+    - filenames (list of str): List of corresponding filenames.
+    """
+    images = []
+    filenames = []
+    for filename in sorted(os.listdir(directory)):
+        if filename.lower().endswith(file_extension):
+            img_path = os.path.join(directory, filename)
+            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)  # Load as grayscale
+            if img is not None:
+                images.append(img)
+                filenames.append(filename)
+    return images, filenames
 
 
-def adjust_brightness_contrast(image, brightness=1.2, contrast=1.2):
-    # Adjust brightness
-    enhancer = ImageEnhance.Brightness(image)
-    image = enhancer.enhance(brightness)
+def flat_field_correct_and_normalize_tiles(
+    tile_dir, flat_field_path, output_dir, brightness_factor=2
+):
+    """
+    Perform flat-field correction and global normalization on tiles in a directory.
 
-    # Adjust contrast
-    enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(contrast)
+    Parameters:
+    - tile_dir (str): Directory containing tile images.
+    - flat_field_path (str): Path to the flat-field image.
+    - output_dir (str): Directory to save corrected and normalized tiles.
+    """
+    # Load tiles
+    tiles, tile_names = load_images_from_directory(tile_dir)
 
-    return image
+    # Load the flat-field image
+    flat_field = cv2.imread(flat_field_path, cv2.IMREAD_GRAYSCALE)
+    if flat_field is None:
+        raise FileNotFoundError(f"Flat-field image not found at: {flat_field_path}")
+
+    # Avoid division by zero
+    flat_field = np.where(flat_field == 0, 1, flat_field)
+
+    corrected_tiles = []
+    global_min, global_max = np.inf, -np.inf
+
+    # Step 1: Perform flat-field correction and track global min and max values.
+    for tile in tiles:
+        # Flat-field correction
+        corrected_tile = tile.astype(np.float32) / flat_field.astype(np.float32)
+        corrected_tiles.append(corrected_tile)
+
+        # Update global min and max
+        global_min = min(global_min, corrected_tile.min())
+        global_max = max(global_max, corrected_tile.max())
+
+    # Step 2: Normalize all corrected tiles using global min and max.
+    normalized_tiles = [
+        ((tile - global_min) / (global_max - global_min) * 255).astype(np.uint8)
+        for tile in corrected_tiles
+    ]
+
+    # Step 3: Apply brightness adjustment.
+    brightened_tiles = [
+        np.clip(tile * brightness_factor, 0, 255).astype(np.uint8)
+        for tile in normalized_tiles
+    ]
+
+    # Step 4: Save brightened tiles to the output directory.
+    os.makedirs(output_dir, exist_ok=True)
+    for tile_name, brightened_tile in zip(tile_names, brightened_tiles):
+        output_path = os.path.join(output_dir, tile_name)
+        cv2.imwrite(output_path, brightened_tile)
+        print(f"Saved brightened tile: {output_path}")
 
 
-def white_balance(image):
-    # Simple white balance by equalizing the histogram
-    image = ImageEnhance.Color(image).enhance(1.2)  # Slight color boost
-    return image
+# Example Usage:
+tile_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_raw"  # Replace with the path to your tile images
+flat_field_image = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\flat_field_image.jpg"  # Replace with the path to your flat-field image
+output_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_cal_bright"  # Replace with the path to save corrected tiles
 
-
-def process_and_display_images(image_path):
-    # Load the original image
-    original_image = Image.open(image_path)
-
-    # Apply preprocessing steps to create a modified version
-    modified_image = adjust_brightness_contrast(original_image.copy())
-    modified_image = gamma_correction(modified_image)
-    modified_image = white_balance(modified_image)
-
-    # Create a new blank image to combine both original and modified images side-by-side
-    combined_width = original_image.width + modified_image.width
-    combined_height = max(original_image.height, modified_image.height)
-    combined_image = Image.new("RGB", (combined_width, combined_height))
-
-    # Paste the original and modified images onto the combined image
-    combined_image.paste(original_image, (0, 0))
-    combined_image.paste(modified_image, (original_image.width, 0))
-
-    # Display the combined image
-    combined_image.show(title="Original vs Modified")
-    print(f"Displayed original and modified image for {image_path}")
-
-    # Wait for user input before proceeding to the next image
-    input("Press Enter to proceed to the next image...")
-
-    # Save the modified image back to the same path
-    modified_image.save(image_path)
-
-
-# Process each image in the directory
-image_paths = glob(os.path.join(image_directory, '*.jpg')
-                   )  # Adjust extension as needed
-
-for image_path in image_paths:
-    process_and_display_images(image_path)
-
-print("All images in the directory have been processed, displayed, and saved.")
+flat_field_correct_and_normalize_tiles(
+    tile_directory, flat_field_image, output_directory
+)

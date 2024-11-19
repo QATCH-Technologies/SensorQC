@@ -34,7 +34,7 @@ class Robot(object):
             self.__serial__.write((command + "\n").encode())
             time.sleep(COMMAND_TIME)
             response = self.__serial__.readline().decode().strip()
-            print("Serial RX:", response)
+            # print("Serial RX:", response)
             return response
         else:
             time.sleep(COMMAND_TIME)

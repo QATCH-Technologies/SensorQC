@@ -81,7 +81,7 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
 
 
 def init_params():
-    # rob.home()
+    rob.home()
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
     scope.set_autoexposure(0)
@@ -107,9 +107,7 @@ def process_video(folder, z_plane):
     tile_locations = []
 
     new_row = True
-    for row_index, x in tqdm(
-        enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)), desc=">> Scanning"
-    ):
+    for row_index, x in enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
             rob.go_to(x, y, z_plane[row_index][col_index])
             if new_row:
@@ -117,8 +115,8 @@ def process_video(folder, z_plane):
                 new_row = False
             else:
                 time.sleep(0.2)
-            cam.capture_image(name=f"{folder}\\tile_{tile}", calibration=True)
-            cam.capture_image(name=f"{folder}\\tile_{tile}", calibration=False)
+
+            cam.capture_image(name=f"{folder}\\tile_{tile}")
 
             tile += 1
         new_row = True
@@ -128,7 +126,7 @@ def process_video(folder, z_plane):
 
 def get_input_folder():
     # Define the folder path
-    folder = os.path.join("content", "images", "l1_bf_c")
+    folder = os.path.join("content", "images", "bf_c_raw")
     if os.path.exists(folder):
         return folder
     else:
@@ -153,5 +151,5 @@ def get_output_folder():
 if __name__ == "__main__":
     plane = interpolate_plane(5.05, 4.89, 4.85, 4.95)
     input_folder = get_input_folder()  # Get folder name from the user
-    output_folder = get_output_folder()  # Get folder name from the user
+    # output_folder = get_output_folder()  # Get folder name from the user
     process_video(input_folder, z_plane=plane)  # Process video and capture images
