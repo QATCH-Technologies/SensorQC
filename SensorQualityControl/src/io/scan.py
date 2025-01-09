@@ -6,7 +6,6 @@ import signal
 import sys
 import csv  # Import the CSV module
 from image_stitcher import stitch
-import easyocr
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
@@ -14,6 +13,7 @@ from robot import Robot
 from dino_lite_edge import Camera, Microscope
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
 
 Z_INITIAL = 9.0
 Z_RANGE = (5.5, 6.5)
@@ -66,11 +66,13 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
         # Z-plane plot
-        ax.plot_surface(X, Y, plane, cmap="viridis", edgecolor="none", alpha=0.8)
+        ax.plot_surface(X, Y, plane, cmap="viridis",
+                        edgecolor="none", alpha=0.8)
 
         # Sensor plotting
         Z_flat = np.zeros_like(plane)
-        ax.plot_surface(X, Y, Z_flat, color="gray", edgecolor="none", alpha=0.5)
+        ax.plot_surface(X, Y, Z_flat, color="gray",
+                        edgecolor="none", alpha=0.5)
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
@@ -105,11 +107,13 @@ def process_video(folder, z_plane):
 
     # Prepare a list to store tile locations
     tile_locations = []
-
+    df = pd.DataFrame()
+    df['Exposure_Value'] = -1
     new_row = True
     for row_index, x in enumerate(np.arange(X_MIN, X_MAX + X_DELTA, X_DELTA)):
         for col_index, y in enumerate(np.arange(Y_MAX, Y_MIN + -Y_DELTA, Y_DELTA)):
             rob.go_to(x, y, z_plane[row_index][col_index])
+
             if new_row:
                 time.sleep(2)
                 new_row = False
@@ -117,11 +121,12 @@ def process_video(folder, z_plane):
                 time.sleep(0.2)
 
             cam.capture_image(name=f"{folder}\\tile_{tile}")
-
+            df.loc[tile]['Exposure_Value'] = scope.get_exposure()
             tile += 1
         new_row = True
     rob.end()
     scope.end()
+    df.to_csv('exposure.csv')
 
 
 def get_input_folder():
@@ -152,4 +157,5 @@ if __name__ == "__main__":
     plane = interpolate_plane(5.05, 4.89, 4.85, 4.95)
     input_folder = get_input_folder()  # Get folder name from the user
     # output_folder = get_output_folder()  # Get folder name from the user
-    process_video(input_folder, z_plane=plane)  # Process video and capture images
+    # Process video and capture images
+    process_video(input_folder, z_plane=plane)
