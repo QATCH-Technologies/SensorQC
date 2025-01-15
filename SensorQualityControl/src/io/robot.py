@@ -59,7 +59,7 @@ class Robot(object):
         return response
 
     def go_to(self, x_position, y_position, z_position) -> str:
-        print(x_position, y_position, z_position)
+        # print(x_position, y_position, z_position)
         g_code = f"G00 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f}\n"
         response = self.send_gcode(g_code)
         return response

@@ -1,4 +1,4 @@
-from process_common import CheckStd
+from process_common import CheckStd, NUM_ROWS, SCALE_BY
 from matplotlib import pyplot as plt
 from logging.handlers import QueueHandler
 import time
@@ -11,7 +11,7 @@ import os
 CV_IO_MAX_IMAGE_PIXELS = pow(2, 30)
 os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = str(CV_IO_MAX_IMAGE_PIXELS)
 
-
+BLEND_OVERLAP = True
 COLOR_WHITE = (255, 255, 255)
 COLOR_PINK = (255, 0, 128)
 
@@ -121,67 +121,79 @@ class ProcessStitcher(multiprocessing.Process):
         # self.plot_image(out2)
         # self.plot_image(out)
 
-        # Blend the foreground image onto the background image
-        bg_roi = out1[y1+top1:y2, x1+left1:x2]
-        fg_roi = fg[max(0, -y_offset):fg.shape[0]-max(0, y_offset),
-                    max(0, -x_offset):fg.shape[1]-max(0, x_offset)]
-        alpha = 0.5  # Transparency level
-        blended_roi = cv.addWeighted(bg_roi, alpha, fg_roi, alpha, 0)
+        if BLEND_OVERLAP == None:
+            return out
 
-        # self.plot_image(blended_roi)
+        try:
+            # Blend the foreground image onto the background image
+            bg_roi = out1[y1+top1:y2, x1+left1:x2]
+            fg_roi = fg[max(0, -y_offset):fg.shape[0]-max(0, y_offset),
+                        max(0, -x_offset):fg.shape[1]-max(0, x_offset)]
+            alpha = 0.5  # Transparency level
+            blended_roi = cv.addWeighted(bg_roi, alpha, fg_roi, alpha, 0)
 
-        # print(bg_roi.shape, fg_roi.shape)
-        # self.plot_image(bg_roi)
-        # self.plot_image(fg_roi)
+            # self.plot_image(blended_roi)
 
-        # # Create a mask for the specified color
-        # bg_mask = np.all(bg_roi == self.trans_color, axis=-1)
-        # fg_mask = np.all(fg_roi == self.trans_color, axis=-1)
+            # print(bg_roi.shape, fg_roi.shape)
+            # self.plot_image(bg_roi)
+            # self.plot_image(fg_roi)
 
-        # # Do not overlay transparent areas of background onto foreground
-        # if np.any(bg_mask):
-        #     print("bg_count", np.count_nonzero(bg_mask.flatten()))
-        #     blended_roi[bg_mask] = (0, 0, 0) # fg_roi[bg_mask, 0] # red
-        #     # blended_roi[bg_mask, 1] = fg_roi[bg_mask, 1] # green
-        #     # blended_roi[bg_mask, 2] = fg_roi[bg_mask, 2] # blue
+            # # Create a mask for the specified color
+            # bg_mask = np.all(bg_roi == self.trans_color, axis=-1)
+            # fg_mask = np.all(fg_roi == self.trans_color, axis=-1)
 
-        # # Do not overlay transparent areas of foreground onto background
-        # if np.any(fg_mask):
-        #     print("fg_count", np.count_nonzero(fg_mask.flatten()))
-        #     blended_roi[fg_mask] = bg_roi[fg_mask] # red
-        #     # blended_roi[fg_mask, 1] = bg_roi[fg_mask, 1] # green
-        #     # blended_roi[fg_mask, 2] = bg_roi[fg_mask, 2] # blue
+            # # Do not overlay transparent areas of background onto foreground
+            # if np.any(bg_mask):
+            #     print("bg_count", np.count_nonzero(bg_mask.flatten()))
+            #     blended_roi[bg_mask] = (0, 0, 0) # fg_roi[bg_mask, 0] # red
+            #     # blended_roi[bg_mask, 1] = fg_roi[bg_mask, 1] # green
+            #     # blended_roi[bg_mask, 2] = fg_roi[bg_mask, 2] # blue
 
-        lowerb = list(self.trans_color[::-1])
-        upperb = lowerb.copy()
-        max_jpeg_compression_delta = 5
-        for i in range(len(lowerb)):
-            lowerb[i] -= max_jpeg_compression_delta
-            upperb[i] += max_jpeg_compression_delta
-        lowerb = tuple(lowerb)
-        upperb = tuple(upperb)
-        bg_mask = np.array(cv.inRange(bg_roi, lowerb, upperb), dtype=bool)
-        fg_mask = np.array(cv.inRange(fg_roi, lowerb, upperb), dtype=bool)
-        blended_roi[bg_mask] = fg_roi[bg_mask]
-        blended_roi[fg_mask] = bg_roi[fg_mask]
+            # # Do not overlay transparent areas of foreground onto background
+            # if np.any(fg_mask):
+            #     print("fg_count", np.count_nonzero(fg_mask.flatten()))
+            #     blended_roi[fg_mask] = bg_roi[fg_mask] # red
+            #     # blended_roi[fg_mask, 1] = bg_roi[fg_mask, 1] # green
+            #     # blended_roi[fg_mask, 2] = bg_roi[fg_mask, 2] # blue
 
-        # pixel_total = len(blended_roi.flatten())
-        # pixel_count = 0
-        # t_color = list(self.trans_color[::-1])
-        # for pixel_Y in range(len(blended_roi)):
-        #     for pixel_X in range(len(blended_roi[pixel_Y])):
-        #         pixel_count += 1
-        #         print(f"Processing pixel {pixel_count} / {pixel_total}")
-        #         bg_color = list(bg_roi[pixel_Y][pixel_X])
-        #         fg_color = list(fg_roi[pixel_Y][pixel_X])
-        #         if bg_color == t_color:
-        #             blended_roi[pixel_Y][pixel_X] = (0, 0, 0) # fg_roi[pixel]
-        #         if fg_color == t_color:
-        #             blended_roi[pixel_Y][pixel_X] = (255, 255, 255) # bg_roi[pixel]
+            lowerb = list(self.trans_color[::-1])
+            upperb = lowerb.copy()
+            max_jpeg_compression_delta = 5
+            for i in range(len(lowerb)):
+                lowerb[i] -= max_jpeg_compression_delta
+                upperb[i] += max_jpeg_compression_delta
+            lowerb = tuple(lowerb)
+            upperb = tuple(upperb)
+            bg_mask = np.array(cv.inRange(bg_roi, lowerb, upperb), dtype=bool)
+            fg_mask = np.array(cv.inRange(fg_roi, lowerb, upperb), dtype=bool)
+            blended_roi[bg_mask] = fg_roi[bg_mask]
+            blended_roi[fg_mask] = bg_roi[fg_mask]
 
-        # self.plot_image(blended_roi)
+            # pixel_total = len(blended_roi.flatten())
+            # pixel_count = 0
+            # t_color = list(self.trans_color[::-1])
+            # for pixel_Y in range(len(blended_roi)):
+            #     for pixel_X in range(len(blended_roi[pixel_Y])):
+            #         pixel_count += 1
+            #         print(f"Processing pixel {pixel_count} / {pixel_total}")
+            #         bg_color = list(bg_roi[pixel_Y][pixel_X])
+            #         fg_color = list(fg_roi[pixel_Y][pixel_X])
+            #         if bg_color == t_color:
+            #             blended_roi[pixel_Y][pixel_X] = (0, 0, 0) # fg_roi[pixel]
+            #         if fg_color == t_color:
+            #             blended_roi[pixel_Y][pixel_X] = (255, 255, 255) # bg_roi[pixel]
 
-        out[y1+top1:y2, x1+left1:x2] = blended_roi
+            # self.plot_image(blended_roi)
+
+            out[y1+top1:y2, x1+left1:x2] = blended_roi
+
+        except Exception as e:
+            self.logger.error("Error while overlaping tiles:")
+            self.logger.exception(e)
+
+            self.plot_image(out1)
+            self.plot_image(out2)
+            self.plot_image(out)
 
         return out
 
@@ -293,7 +305,7 @@ class ProcessStitcher(multiprocessing.Process):
                     pos_y = line[line.find(',') + 1:line.find(')')]
                     absolute_positions[tile] = (int(pos_x), int(pos_y))
             total_tiles_queued = len(absolute_positions.keys())
-            num_tiles_per_row = 22
+            num_tiles_per_row = NUM_ROWS
             grid_rows = num_tiles_per_row
             grid_cols = int(total_tiles_queued / num_tiles_per_row)
             assert grid_cols % 1 == 0, "Number of tiles not divisible by 'rows'. Check and try again."
@@ -308,7 +320,8 @@ class ProcessStitcher(multiprocessing.Process):
                 for i, tile in enumerate(tiles_this_row):
                     this_tile = os.path.join(self.image_path, tile)
                     if i == 0:
-                        overlay_image = cv.imread(this_tile)
+                        overlay_image = cv.resize(
+                            cv.imread(this_tile), (0, 0), fx=SCALE_BY, fy=SCALE_BY)
                         tile_shape = tuple(overlay_image.shape[0:2][::-1])
                     else:
                         overlay_shape = tuple(overlay_image.shape[0:2][::-1])
@@ -317,7 +330,8 @@ class ProcessStitcher(multiprocessing.Process):
                         offset_y = this_position[1] - last_pos[1]
                         overlay_image = self.overlay_images(
                             overlay_image,
-                            cv.imread(this_tile),
+                            cv.resize(cv.imread(this_tile), (0, 0),
+                                      fx=SCALE_BY, fy=SCALE_BY),
                             offset_x,
                             offset_y
                         )
@@ -615,12 +629,14 @@ class ProcessStitcher(multiprocessing.Process):
                     # Append tile_image to overlay_image
                     self.logger.info(f"Processing {tile}")
                     if offset == (0, 0):  # TODO: remove reliance on (0, 0) offsets in queue
-                        overlay_image = cv.imread(this_tile)
+                        overlay_image = cv.resize(
+                            cv.imread(this_tile), (0, 0), fx=SCALE_BY, fy=SCALE_BY)
                         tile_shape = tuple(overlay_image.shape[0:2][::-1])
                     else:
                         overlay_image = self.overlay_images(
                             overlay_image,
-                            cv.imread(this_tile),
+                            cv.resize(cv.imread(this_tile), (0, 0),
+                                      fx=SCALE_BY, fy=SCALE_BY),
                             offset[0],
                             offset[1]
                         )
@@ -865,7 +881,7 @@ class ProcessStitcher(multiprocessing.Process):
                 for i in range(total_tiles_queued):
                     last_tile = f"tile_{i}.jpg"
                     tile = f"tile_{i+1}.jpg"
-                    num_tiles_per_row = 22
+                    num_tiles_per_row = NUM_ROWS
                     grid_rows = num_tiles_per_row
                     image_row = i % grid_rows
                     if reverse_search == False and not tile in absolute_positions.keys():
@@ -893,6 +909,10 @@ class ProcessStitcher(multiprocessing.Process):
                                 f"Used an average position offset to place {last_tile}")
                             break  # only set one tile with average position per no new tiles being placed
             if len(absolute_positions) == total_tiles_queued:
+                break
+            if loop_count > total_tiles_queued:
+                self.logger.error(
+                    "Too many loop iterations trying to position tiles!")
                 break
 
         self.logger.info("Absolute positions:")

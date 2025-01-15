@@ -7,7 +7,7 @@ import time
 
 from logging.handlers import QueueHandler
 from matplotlib import pyplot as plt
-from process_common import CheckStd
+from process_common import CheckStd, SCALE_BY
 
 
 class ProcessDetector(multiprocessing.Process):
@@ -152,7 +152,7 @@ class ProcessDetector(multiprocessing.Process):
         if is_column:
             self.logger.info(f"Processing {os.path.basename(path2)}")
 
-        scale = 0.1 if is_column else 1
+        scale = 0.1 if is_column else SCALE_BY
         img1 = cv.resize(img1, (0, 0), fx=scale, fy=scale)
         img2 = cv.resize(img2, (0, 0), fx=scale, fy=scale)
 
@@ -320,8 +320,8 @@ class ProcessDetector(multiprocessing.Process):
             if len(x_offsets) > 0:
                 # self.logger.debug("Found offset")
                 if is_column or True:
-                    x_offsets = [x/scale for x in x_offsets]
-                    y_offsets = [y/scale for y in y_offsets]
+                    x_offsets = [x for x in x_offsets]
+                    y_offsets = [y for y in y_offsets]
                 middle_x = int(x_offsets[int(len(x_offsets) / 2)])
                 middle_y = int(y_offsets[int(len(y_offsets) / 2)])
 

@@ -7,31 +7,32 @@ from PIL import Image
 
 HOMING_TIME = 17
 Z_INITIAL = 9.0
-Z_RANGE = (3.5, 6.5)
+Z_RANGE = (3.5, 8.5)
 STEP_SIZE = 0.05
 CORNERS = {
-    "top_left": (108.2, 130.9),
-    "top_right": (117.7, 128.4),
-    "bottom_right": (117.2, 122.9),
-    "bottom_left": (110.2, 122.4),
+    "top_left": (109.5, 129.5),
+    "top_right": (117.1, 128.3),
+    "bottom_right": (117.1, 121.1),
+    "bottom_left": (109.5, 122.5),
 }
 INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
 scope = Microscope()
 cam = Camera(debug=False)
 rob = Robot(debug=False)
 rob.begin()
-rob.home()
+# rob.home()
 rob.absolute_mode()
+# scope.led_on(2)
 
 
 def generate_flat_field_image():
     """
     Generates a synthetic flat field image with uniform intensity.
     """
-    scope.led_on(state=1)
+    # scope.led_on(state=2)
     time.sleep(5)
     print("Capturing flat field images...")
-    frame = cam.capture_image("flat_field_image", calibration=True)
+    frame = cam.capture_image("df_flat_field_image")
     # Convert image to float for accurate division and avoid overflow
     image = frame.astype(np.float32)
 
@@ -110,6 +111,7 @@ def calculate_laplacian_variance(image):
 def autofocus(z_range, step_size):
     z_min, z_max = z_range
     best_z = z_min
+    best_frame = None
     max_sharpness = 0
 
     # Loop over Z values in the given range
@@ -131,9 +133,10 @@ def autofocus(z_range, step_size):
         if sharpness > max_sharpness:
             max_sharpness = sharpness
             best_z = z
+            best_frame = frame
 
     print(f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
-    return best_z
+    return best_z, best_frame
 
 
 def calibrate_focus(corner_positions, z_range, step_size):
@@ -142,7 +145,9 @@ def calibrate_focus(corner_positions, z_range, step_size):
         print(f"Moving to {corner}: (X={x}, Y={y})")
         rob.go_to(x, y, Z_INITIAL)
         print(f"Running autofocus at {corner}...")
-        z_height = autofocus(z_range, step_size)
+        z_height, b_frame = autofocus(z_range, step_size)
+        cal_filename = f"cal_{corner}.jpg"
+        cv2.imwrite(cal_filename, b_frame)
         print(f"Optimal Z-height at {corner}: {z_height}")
         z_heights[corner] = z_height
     return z_heights
@@ -151,16 +156,15 @@ def calibrate_focus(corner_positions, z_range, step_size):
 if __name__ == "__main__":
     # Define the range of Z-values to explore
     # Z step size for autofocus
-    scope.led_off()
-    scope.led_on(state=2)
-    ff_image = generate_flat_field_image()
-    df_image = generate_dark_field_image()
-    cv2.imwrite("flat_field_image.jpg", ff_image)
-    # cv2.imwrite("dark_field_image.jpg", df_image)
+    # scope.led_off()
+    scope.led_on(state=1)
+    # ff_image = generate_flat_field_image()
+    # # df_image = generate_dark_field_image()
+    # cv2.imwrite("df_flat_field_image.jpg", ff_image)
+    # # cv2.imwrite("dark_field_image.jpg", df_image)
+    init_params()
+    z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
+    print("Calibration Results (Z-heights at corners):")
+    print(z_height_results)
     scope.end()
-    # init_params()
-    # z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
-    # print("Calibration Results (Z-heights at corners):")
-    # print(z_height_results)
-    # scope.end()
-    # rob.end()
+    rob.end()

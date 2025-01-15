@@ -83,9 +83,9 @@ def flat_field_correct_and_normalize_tiles(
 
 
 # Example Usage:
-tile_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_raw"  # Replace with the path to your tile images
+tile_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_expr"  # Replace with the path to your tile images
 flat_field_image = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\flat_field_image.jpg"  # Replace with the path to your flat-field image
-output_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_cal_bright"  # Replace with the path to save corrected tiles
+output_directory = r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\content\images\bf_c_expr_bright"  # Replace with the path to save corrected tiles
 
 flat_field_correct_and_normalize_tiles(
     tile_directory, flat_field_image, output_directory

@@ -165,7 +165,8 @@ class Microscope:
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self.__microscope__.FOVx(
+                DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
@@ -296,6 +297,10 @@ class Camera:
             self.running = False
             self.__camera__.release()
             cv2.destroyAllWindows()
+
+    def release(self):
+        if self.__camera__.isOpened():
+            self.__camera__.release()
 
 
 if __name__ == "__main__":

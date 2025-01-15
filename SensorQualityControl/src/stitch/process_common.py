@@ -1,3 +1,8 @@
+NUM_TILES = 483
+NUM_ROWS = 21
+SCALE_BY = 0.5
+
+
 def CheckStd(raw, avg, std):
 
     raw_x = raw[0]
@@ -9,14 +14,14 @@ def CheckStd(raw, avg, std):
 
     allowable_deviation_factor = 4
 
-    if (abs(avg_x - raw_x) <= 
-        allowable_deviation_factor * std_x):
+    if (abs(avg_x - raw_x) <=
+            allowable_deviation_factor * std_x):
         check_x = True
     else:
         check_x = False
 
     if (abs(avg_y - raw_y) <=
-        allowable_deviation_factor * std_y):
+            allowable_deviation_factor * std_y):
         check_y = True
     else:
         check_y = False
