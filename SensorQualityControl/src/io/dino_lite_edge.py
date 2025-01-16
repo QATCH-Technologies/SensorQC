@@ -1,47 +1,12 @@
-from PIL import Image, ImageEnhance
-import matplotlib.pyplot as plt
-from skimage.transform import warp, AffineTransform
-from skimage import io, color
-import os
 import importlib
 import math
 import threading
 import time
 import cv2
 from DNX64 import *
-import numpy as np
 import signal
-from astropy.io import fits
-
-from scipy.ndimage import gaussian_filter1d
-
-DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
-# Global variables
-WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
-"""
-Supported Resolutions:
-- 640 x 480
-- 1280 x 960
-- 1600 x 1200
-- 2048 x 1536
-- 2582 x 1944
-"""
-CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 960, 30
-DEVICE_INDEX = 0
-# Camera index, please change it if you have more than one camera,
-# i.e. webcam, connected to your PC until CAM_INDEX is been set to first Dino-Lite product.
-CAM_INDEX = 1
-# Buffer time for Dino-Lite to return value
-QUERY_TIME = 0.05
-# Buffer time to allow Dino-Lite to process command
-COMMAND_TIME = 0.25
-
-LED_OFF_FLAG = 0
-BRIGHT_FIELD_FLAG = 1
-DARK_FIELD_FLAG = 2
-DEFAULT_FLC_LEVEL = 3
-DEFAULT_FLC_QUADRANT = 15
-FLC_OFF = 16
+import atexit
+from constants import CameraConstants, MicroscopeConstants
 
 
 def threaded(func):
@@ -55,95 +20,108 @@ def threaded(func):
 
 
 class Microscope:
-    def __init__(
-        self, microscope_path: str = DNX64_PATH, device_index: int = DEVICE_INDEX
-    ):
+    def __init__(self, microscope_path: str = MicroscopeConstants.DNX64_PATH, device_index: int = MicroscopeConstants.DEVICE_INDEX):
         try:
             DNX64 = getattr(importlib.import_module("DNX64"), "DNX64")
         except ImportError as err:
             print("Error: ", err)
-        # Set index of video device. Call before Init().
-        self.__device_index__ = device_index
-        self.__microscope__ = DNX64(microscope_path)
-        self.set_index(self.__device_index__)
-        # Enabled MicroTouch Event
-        self.__microscope__.EnableMicroTouch(True)
-        time.sleep(COMMAND_TIME)
-        # Function to execute when MicroTouch event detected
-        self.__microscope__.SetEventCallback(self.microtouch)
-        time.sleep(COMMAND_TIME)
-        self.led_off()
-        signal.signal(signal.SIGINT, self._handle_exit)
+            raise
 
-    def _handle_exit(self, signal, frame):
-        # Turn off the LED when the program is interrupted (Ctrl+C)
+        self._device_index = device_index
+        self._microscope = DNX64(microscope_path)
+
+        # Initialize microscope and set default states
+        self.set_index(self._device_index)
+        self._microscope.EnableMicroTouch(True)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
+        self._microscope.SetEventCallback(self.microtouch)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
+
+        # Ensure the LED is off initially
         self.led_off()
+
+        # Register cleanup handlers
+        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGTERM, self._handle_exit)
+        atexit.register(self._cleanup)
+
+    def _handle_exit(self, signum, frame):
+        """Handle termination signals to ensure cleanup."""
+        print(f"Signal {signum} received. Turning off LED and exiting.")
+        self._cleanup()
         exit(0)
 
+    def _cleanup(self):
+        """Cleanup resources and ensure LED is off."""
+        self.led_off()
+        print("LED turned off. Resources cleaned up.")
+
     def enable_microtouch(self):
-        return self.__microscope__.EnableMicroTouch(True)
+        return self._microscope.EnableMicroTouch(True)
 
     def disable_microtouch(self):
-        return self.__microscope__.EnableMicroTouch(False)
+        return self._microscope.EnableMicroTouch(False)
 
     def auto_exposure(self, state: int):
-        self.__microscope__.SetAutoExposure(self.__device_index__, state)
+        self._microscope.SetAutoExposure(self._device_index, state)
 
-    def flc_on(self, quadrant: int = DEFAULT_FLC_QUADRANT):
-        self.__microscope__.SetFLCSwitch(self.__device_index__, quadrant)
+    def flc_on(self, quadrant: int = MicroscopeConstants.DEFAULT_FLC_QUADRANT):
+        self._microscope.SetFLCSwitch(self._device_index, quadrant)
 
     def flc_off(self):
-        self.__microscope__.SetFLCSwitch(self.__device_index__, FLC_OFF)
+        self._microscope.SetFLCSwitch(
+            self._device_index, MicroscopeConstants.FLC_OFF)
 
-    def flc_level(self, level: int = DEFAULT_FLC_LEVEL):
-        self.__microscope__.SetFLCLevel(self.__device_index__, level)
-        time.sleep(COMMAND_TIME)
+    def flc_level(self, level: int = MicroscopeConstants.DEFAULT_FLC_LEVEL):
+        self._microscope.SetFLCLevel(self._device_index, level)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     @threaded
     def led_on(self, state):
         self.led_off()
-        self.__microscope__.SetLEDState(self.__device_index__, state)
-        time.sleep(COMMAND_TIME)
+        self._microscope.SetLEDState(self._device_index, state)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def microtouch(self, routine):
         routine()
 
     def led_off(self):
-        self.__microscope__.SetLEDState(self.__device_index__, LED_OFF_FLAG)
-        time.sleep(COMMAND_TIME)
+        self._microscope.SetLEDState(
+            self._device_index, MicroscopeConstants.LED_OFF)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
 
-    def set_index(self, device_index: int = DEVICE_INDEX):
-        self.__microscope__.SetVideoDeviceIndex(device_index)
-        time.sleep(COMMAND_TIME)
+    def set_index(self, device_index: int = MicroscopeConstants.DEVICE_INDEX):
+        self._microscope.SetVideoDeviceIndex(device_index)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def set_exposure(self, exposure: int):
-        self.__microscope__.SetExposureValue(self.__device_index__, exposure)
+        self._microscope.SetExposureValue(self._device_index, exposure)
 
     def set_autoexposure(self, state: int):
-        self.__microscope__.SetAutoExposure(self.__device_index__, state)
+        self._microscope.SetAutoExposure(self._device_index, state)
 
     def set_autoexposure_target(self, target: int):
-        self.__microscope__.SetAETarget(self.__device_index__, target)
+        self._microscope.SetAETarget(self._device_index, target)
 
     def get_id(self):
-        id = self.__microscope__.GetDeviceId(self.__device_index__)
-        time.sleep(QUERY_TIME)
+        id = self._microscope.GetDeviceId(self._device_index)
+        time.sleep(MicroscopeConstants.QUERY_TIME)
         return id
 
     def get_exposure(self):
-        return self.__microscope__.GetExposureValue(self.__device_index__)
+        return self._microscope.GetExposureValue(self._device_index)
 
     def get_autoexposure(self):
-        return self.__microscope__.GetAutoExposure(self.__device_index__)
+        return self._microscope.GetAutoExposure(self._device_index)
 
     def get_autoexposure_target(self):
-        return self.__microscope__.GetAETarget(self.__device_index__)
+        return self._microscope.GetAETarget(self._device_index)
 
     def get_ida(self):
-        return self.__microscope__.GetDeviceIDA(self.__device_index__)
+        return self._microscope.GetDeviceIDA(self._device_index)
 
     def get_config(self):
-        config = self.__microscope__.GetConfig(self.__device_index__)
+        config = self._microscope.GetConfig(self._device_index)
         config_dict = {
             "config_value": "0x{:X}".format(config),
             "EDOF": (config & 0x80) == 0x80,
@@ -155,31 +133,31 @@ class Microscope:
             "FLC": (config & 0x2) == 0x2,
             "AXI": (config & 0x1) == 0x1,
         }
-        time.sleep(QUERY_TIME)
+        time.sleep(MicroscopeConstants.QUERY_TIME)
         return config_dict
 
     def get_fov_index(self):
-        amr = self.__microscope__.GetAMR(DEVICE_INDEX)
-        fov = self.__microscope__.FOVx(DEVICE_INDEX, amr)
+        amr = self._microscope.GetAMR(MicroscopeConstants.DEVICE_INDEX)
+        fov = self._microscope.FOVx(MicroscopeConstants.DEVICE_INDEX, amr)
         amr = round(amr, 1)
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self.__microscope__.FOVx(
-                DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(self._microscope.FOVx(
+                MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0, 2)
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
 
-        time.sleep(QUERY_TIME)
+        time.sleep(MicroscopeConstants.QUERY_TIME)
         return fov_info
 
     def get_amr(self):
-        config = self.__microscope__.GetConfig(self.__device_index__)
+        config = self._microscope.GetConfig(self._device_index)
         amr_info = {}
 
         if (config & 0x40) == 0x40:
-            amr = self.__microscope__.GetAMR(self.__device_index__)
+            amr = self._microscope.GetAMR(self._device_index)
             amr = round(amr, 1)
             amr_info = {"amr_value": amr, "message": f"{amr}x"}
         else:
@@ -188,7 +166,7 @@ class Microscope:
                 "message": "It does not belong to the AMR series.",
             }
 
-        time.sleep(QUERY_TIME)
+        time.sleep(MicroscopeConstants.QUERY_TIME)
         return amr_info
 
     def end(self):
@@ -198,52 +176,33 @@ class Microscope:
 class Camera:
     def __init__(self, recording: bool = False, video_writer=None, debug=False):
         if debug:
-            self.__camera__ = cv2.VideoCapture(0)
+            self._camera = cv2.VideoCapture(0)
         else:
-            self.__recording__ = recording
-            self.__video_writer__ = video_writer
+            self._recording = recording
+            self._video_writer = video_writer
 
-            self.__camera__ = cv2.VideoCapture(CAM_INDEX)
-            self.__camera__.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-            self.__camera__.set(
+            self._camera = cv2.VideoCapture(CameraConstants.CAMERA_INDEX)
+            self._camera.set(cv2.CAP_PROP_FPS, CameraConstants.CAMERA_FPS)
+            self._camera.set(
                 cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g")
             )
-            self.__camera__.set(
+            self._camera.set(
                 cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
             )
-            self.__camera__.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-            self.__camera__.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-            self.__camera__.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        # signal.signal(signal.SIGINT, self._handle_exit)
+            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH,
+                             CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[0])
+            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT,
+                             CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[1])
+            self._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
-
-    # def _handle_exit(self, signal, frame):
-    #     # Turn off the LED when the program is interrupted (Ctrl+C)
-    #     self.running = False
-    #     self.__camera__.release()
-    #     cv2.destroyAllWindows()
-    #     exit(0)
-    def correct_luminance(self, image):
-        # Convert to grayscale for luminance-based processing
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Apply histogram equalization to improve contrast
-        equalized = cv2.equalizeHist(gray)
-
-        # Merge back the channels if needed (keeping the original colors)
-        image[:, :, 0] = equalized
-        image[:, :, 1] = equalized
-        image[:, :, 2] = equalized
-
-        return image
 
     def set_index(self, microscope):
         microscope.SetVideoDeviceIndex(0)
-        time.sleep(COMMAND_TIME)
+        time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def capture_image(self, name: str):
         """Capture an image and save it in the current working directory."""
-        status, frame = self.__camera__.read()
+        status, frame = self._camera.read()
 
         if status:
             self.running = True
@@ -256,7 +215,7 @@ class Camera:
         self.running = False
         return frame
 
-    def process_frame(self, frame):
+    def process_frame_w_crosshairs(self, frame):
         height, width, _ = frame.shape
         center_x, center_y = width // 2, height // 2
 
@@ -274,17 +233,17 @@ class Camera:
             (0, 0, 255),
             2,
         )
-        return cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        return cv2.resize(frame, (CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[0], CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[1]))
 
     def run(self):
-        if not self.__camera__.isOpened():
+        if not self._camera.isOpened():
             print("Error opening the camera device.")
             return
 
         while True:
-            status, frame = self.__camera__.read()
+            status, frame = self._camera.read()
             if status:
-                resized_frame = self.process_frame(frame)
+                resized_frame = self.process_frame_w_crosshairs(frame)
                 cv2.imshow("Dino-Lite Camera", resized_frame)
                 if cv2.waitKey(1) & 0xFF == ord("p"):
                     break
@@ -295,63 +254,13 @@ class Camera:
             threading.Thread(target=self.run, daemon=True).start()
         else:
             self.running = False
-            self.__camera__.release()
+            self._camera.release()
             cv2.destroyAllWindows()
 
     def release(self):
-        if self.__camera__.isOpened():
-            self.__camera__.release()
+        if self._camera.isOpened():
+            self._camera.release()
 
 
 if __name__ == "__main__":
     cam = Camera(debug=True)
-    # cam.capture_image("test_image")
-    # im = cv2.imread(r'C:\Users\paulm\dev\SensorQC\test_image.jpg')
-    # # cam.capture_image('test_image')
-    # Sample image and flat field image path
-    # Example 3-channel image (replace with actual image)
-
-    # sample_image = np.random.rand(512, 512, 3) * 255
-    # # Replace with actual path
-    # flat_field_image_path = (
-    #     r"C:\Users\QATCH\dev\SensorQC\SensorQualityControl\calibration_image.jpg"
-    # )
-
-    # # Dark field data (example)
-    # dark_field = [
-    #     np.random.rand(512, 512) * 10,
-    #     np.random.rand(512, 512) * 10,
-    #     np.random.rand(512, 512) * 10,
-    # ]
-
-    # # Channel to dark field index mapping
-    # channel_to_df_idx = {0: 0, 1: 1, 2: 2}
-
-    # # Channel field data (example)
-    # channel_fields = {
-    #     0: np.random.rand(10),
-    #     1: np.random.rand(10),
-    #     2: np.random.rand(10),
-    # }
-
-    # # Channel gain data (example)
-    # avg_channel_gains = {
-    #     0: np.random.rand(10),
-    #     1: np.random.rand(10),
-    #     2: np.random.rand(10),
-    # }
-
-    # # Call the function
-    # corrected_image = cam.flatfield_correction(
-    #     sample_image,
-    #     flat_field_image_path,
-    #     dark_field,
-    #     channel_to_df_idx,
-    #     channel_fields,
-    #     avg_channel_gains,
-    #     flat_start=0,  # Optionally set flat_start if needed
-    # )
-
-    # # Display the corrected image (if you want to check it)
-    # plt.imshow(corrected_image)
-    # plt.show()
