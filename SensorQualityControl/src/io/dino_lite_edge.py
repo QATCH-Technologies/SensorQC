@@ -20,30 +20,35 @@ def threaded(func):
 
 
 class Microscope:
-    def __init__(self, microscope_path: str = MicroscopeConstants.DNX64_PATH, device_index: int = MicroscopeConstants.DEVICE_INDEX):
-        try:
-            DNX64 = getattr(importlib.import_module("DNX64"), "DNX64")
-        except ImportError as err:
-            print("Error: ", err)
-            raise
+    def __init__(self, microscope_path: str = MicroscopeConstants.DNX64_PATH, device_index: int = MicroscopeConstants.DEVICE_INDEX, debug: bool = False):
+        self._debug = debug
+        if self._debug:
+            self._device_index = device_index
+            self._microscope = None
+        else:
+            try:
+                DNX64 = getattr(importlib.import_module("DNX64"), "DNX64")
+            except ImportError as err:
+                print("Error: ", err)
+                raise
 
-        self._device_index = device_index
-        self._microscope = DNX64(microscope_path)
+            self._device_index = device_index
+            self._microscope = DNX64(microscope_path)
 
-        # Initialize microscope and set default states
-        self.set_index(self._device_index)
-        self._microscope.EnableMicroTouch(True)
-        time.sleep(MicroscopeConstants.COMMAND_TIME)
-        self._microscope.SetEventCallback(self.microtouch)
-        time.sleep(MicroscopeConstants.COMMAND_TIME)
+            # Initialize microscope and set default states
+            self.set_index(self._device_index)
+            self._microscope.EnableMicroTouch(True)
+            time.sleep(MicroscopeConstants.COMMAND_TIME)
+            self._microscope.SetEventCallback(self.microtouch)
+            time.sleep(MicroscopeConstants.COMMAND_TIME)
 
-        # Ensure the LED is off initially
-        self.led_off()
+            # Ensure the LED is off initially
+            self.led_off()
 
-        # Register cleanup handlers
-        signal.signal(signal.SIGINT, self._handle_exit)
-        signal.signal(signal.SIGTERM, self._handle_exit)
-        atexit.register(self._cleanup)
+            # Register cleanup handlers
+            signal.signal(signal.SIGINT, self._handle_exit)
+            signal.signal(signal.SIGTERM, self._handle_exit)
+            atexit.register(self._cleanup)
 
     def _handle_exit(self, signum, frame):
         """Handle termination signals to ensure cleanup."""
@@ -57,35 +62,53 @@ class Microscope:
         print("LED turned off. Resources cleaned up.")
 
     def enable_microtouch(self):
+        if self._debug:
+            return "[DEBUG] Microtouch enabled."
         return self._microscope.EnableMicroTouch(True)
 
     def disable_microtouch(self):
+        if self._debug:
+            return "[DEBUG] Microtouch disabled."
         return self._microscope.EnableMicroTouch(False)
 
     def auto_exposure(self, state: int):
+        if self._debug:
+            return f"[DEBUG] autoexposure set to {state}."
         self._microscope.SetAutoExposure(self._device_index, state)
 
     def flc_on(self, quadrant: int = MicroscopeConstants.DEFAULT_FLC_QUADRANT):
+        if self._debug:
+            return f"[DEBUG] FLC set to quadrant {quadrant}."
         self._microscope.SetFLCSwitch(self._device_index, quadrant)
 
     def flc_off(self):
+        if self._debug:
+            return f"[DEBUG] FLC off."
         self._microscope.SetFLCSwitch(
             self._device_index, MicroscopeConstants.FLC_OFF)
 
     def flc_level(self, level: int = MicroscopeConstants.DEFAULT_FLC_LEVEL):
+        if self._debug:
+            return f"[DEBUG] FLC level set to {level}."
         self._microscope.SetFLCLevel(self._device_index, level)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     @threaded
     def led_on(self, state):
+        if self._debug:
+            return f"[DEBUG] led on."
         self.led_off()
         self._microscope.SetLEDState(self._device_index, state)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def microtouch(self, routine):
+        if self._debug:
+            return f"[DEBUG] executing microtouch routine {routine}."
         routine()
 
     def led_off(self):
+        if self._debug:
+            return f"[DEBUG] led off."
         self._microscope.SetLEDState(
             self._device_index, MicroscopeConstants.LED_OFF)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
@@ -95,32 +118,50 @@ class Microscope:
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def set_exposure(self, exposure: int):
+        if self._debug:
+            return f"[DEBUG] exposure set to {exposure}."
         self._microscope.SetExposureValue(self._device_index, exposure)
 
     def set_autoexposure(self, state: int):
+        if self._debug:
+            return f"[DEBUG] Autoexposure set to {state}."
         self._microscope.SetAutoExposure(self._device_index, state)
 
     def set_autoexposure_target(self, target: int):
+        if self._debug:
+            return f"[DEBUG] autoexposure target set to {target}."
         self._microscope.SetAETarget(self._device_index, target)
 
     def get_id(self):
+        if self._debug:
+            return f"[DEBUG] reporting device id."
         id = self._microscope.GetDeviceId(self._device_index)
         time.sleep(MicroscopeConstants.QUERY_TIME)
         return id
 
     def get_exposure(self):
+        if self._debug:
+            return f"[DEBUG] reporting exposure."
         return self._microscope.GetExposureValue(self._device_index)
 
     def get_autoexposure(self):
+        if self._debug:
+            return f"[DEBUG] reporting autoexposure state."
         return self._microscope.GetAutoExposure(self._device_index)
 
     def get_autoexposure_target(self):
+        if self._debug:
+            return f"[DEBUG] reporting autoexposure target."
         return self._microscope.GetAETarget(self._device_index)
 
     def get_ida(self):
+        if self._debug:
+            return f"[DEBUG] reporting ida."
         return self._microscope.GetDeviceIDA(self._device_index)
 
     def get_config(self):
+        if self._debug:
+            return f"[DEBUG] reporting config."
         config = self._microscope.GetConfig(self._device_index)
         config_dict = {
             "config_value": "0x{:X}".format(config),
@@ -137,6 +178,8 @@ class Microscope:
         return config_dict
 
     def get_fov_index(self):
+        if self._debug:
+            return f"[DEBUG] reporting fov index."
         amr = self._microscope.GetAMR(MicroscopeConstants.DEVICE_INDEX)
         fov = self._microscope.FOVx(MicroscopeConstants.DEVICE_INDEX, amr)
         amr = round(amr, 1)
@@ -153,6 +196,8 @@ class Microscope:
         return fov_info
 
     def get_amr(self):
+        if self._debug:
+            return f"[DEBUG] reporting amr."
         config = self._microscope.GetConfig(self._device_index)
         amr_info = {}
 
@@ -170,6 +215,8 @@ class Microscope:
         return amr_info
 
     def end(self):
+        if self._debug:
+            return f"[DEBUG] terminating microscope connection."
         self.led_off()
 
 

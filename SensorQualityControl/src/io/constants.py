@@ -1,26 +1,47 @@
 from enum import Enum
 from collections import namedtuple
+from positions import Position
 
 
 class SystemConstants:
     """System-wide constants related to positions, focus, and ranges."""
 
     # Named tuple for positions
-    Position = namedtuple("Position", ["x", "y", "z", "rotation"])
-    FocusPoint = namedtuple("FocusPoint", ["x", "y", "z"])
+    # Position = namedtuple("Position", ["x", "y", "z", "rotation"])
+    # FocusPoint = namedtuple("FocusPoint", ["x", "y"])
 
-    INITIAL_POSITION = Position(108.2, 130.9, 6.19, 0.00)
-    FINAL_POSITION = Position(119.6, 119.4, 4.75, 0.00)
-    TOP_LEFT_FOCUS = FocusPoint(109.5, 129.5, 4.90)
-    TOP_RIGHT_FOCUS = FocusPoint(117.1, 128.3, 5.00)
-    BOTTOM_LEFT_FOCUS = FocusPoint(117.1, 121.1, 4.90)
-    BOTTOM_RIGHT_FOCUS = FocusPoint(109.5, 122.5, 4.95)
-
+    INITIAL_POSITION = Position(
+        x=108.2, y=130.9, z=6.19, location_name="Initial_Position")
+    FINAL_POSITION = Position(x=119.6, y=119.4, z=4.75,
+                              location_name="Final_Position")
+    TOP_LEFT_FOCUS = Position(y=0, x=0, z=0,
+                              location_name="Top_Left_Focus_Point")
+    TOP_RIGHT_FOCUS = Position(
+        x=117.1, y=128.3, z=0, location_name="Top_Right_Focus_Point")
+    BOTTOM_LEFT_FOCUS = Position(
+        x=117.1, y=121.1, z=0, location_name="Bottom_Left_Focus_Point")
+    BOTTOM_RIGHT_FOCUS = Position(
+        x=109.5, y=122.5, z=0, location_name="Bottom_Right_Focus_Point")
+    LABEL_FOCUS = Position(x=109.5, y=129.5, z=0,
+                           location_name="Label_Focus_Point")
+    INLET_FOCUS = Position(y=0, x=0, z=0,
+                           location_name="Inlet_Focus_Point")
+    OUTLET_FOCUS = Position(y=0, x=0, z=0,
+                            location_name="Outlet_Focus_Point")
+    CHANNEL_1_FOCUS = Position(y=0, x=0, z=0,
+                               location_name="Channel_1_Focus_Point")
+    CHANNEL_2_FOCUS = Position(y=0, x=0, z=0,
+                               location_name="Channel_2_Focus_Point")
     FOCUS_PLANE_POINTS = [
-        TOP_LEFT_FOCUS,  # Top-left
-        TOP_RIGHT_FOCUS,  # Top-right
-        BOTTOM_LEFT_FOCUS,  # Bottom-left
-        BOTTOM_RIGHT_FOCUS,  # Bottom-right
+        LABEL_FOCUS,
+        TOP_LEFT_FOCUS,
+        TOP_RIGHT_FOCUS,
+        BOTTOM_LEFT_FOCUS,
+        BOTTOM_RIGHT_FOCUS,
+        INLET_FOCUS,
+        OUTLET_FOCUS,
+        CHANNEL_1_FOCUS,
+        CHANNEL_2_FOCUS,
     ]
 
     FOCUS_RANGE = (3.0, 6.0)  # Min and max focus range
@@ -28,6 +49,7 @@ class SystemConstants:
 
     X_DELTA = 0.5
     Y_DELTA = -0.5
+    DEBUG = True
 
     @classmethod
     def validate_focus_range(cls):
@@ -40,6 +62,7 @@ class SystemConstants:
 
 class RobotConstants:
     """Constants related to robot configuration and operation."""
+    ROBOT_PORT = "COM4"
 
     class Units(Enum):
         METRIC = "G21"
@@ -50,6 +73,8 @@ class RobotConstants:
     FEED_RATE = 1000  # Movement speed in mm/min
     COMMAND_TIME = 0.5  # Time between commands in seconds
     BAUDRATE = 115200  # Communication speed
+    COLUMN_DELAY = 0.1
+    ROW_DELAY = 2
 
 
 class CameraConstants:

@@ -1,0 +1,31 @@
+class DinoLiteConstants:
+    RESOLUTIONS = {
+        "640x480": (640, 480),
+        "1280x960": (1280, 960),
+        "1600x1200": (
+            1600, 1200),
+        "2048x1536": (2048, 1536),
+        "2582x1944": (2582, 1944)
+    }
+    DNX64_PATH = "C:\\Program Files\\DNX64\\DNX64.dll"
+    WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 960
+    CAMERA_WIDTH, CAMERA_HEIGHT = RESOLUTIONS["1280x960"]
+    CAMERA_FPS = 30
+    DEVICE_INDEX = 0
+    CAM_INDEX = 1
+    QUERY_TIME = 0.05
+    COMMAND_TIME = 0.25
+    LED_OFF_FLAG = 0
+    BRIGHT_FIELD_FLAG = 1
+    DARK_FIELD_FLAG = 2
+    DEFAULT_FLC_LEVEL = 3
+    DEFAULT_FLC_QUADRANT = 15
+    FLC_OFF = 16
+
+
+class RobotConstants:
+    BAUDRATE = 115200
+    COMMAND_TIME = 0.5
+    FEED_RATE = 1000
+    UNITS = "G21"
+    HOME_TIME = 20
