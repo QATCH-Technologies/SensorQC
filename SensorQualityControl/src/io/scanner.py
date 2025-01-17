@@ -98,8 +98,8 @@ class TileScanner:
         self.rob.absolute_mode()
         self.scope.disable_microtouch()
         self.scope.led_on(state=MicroscopeConstants.BRIGHT_FIELD)
-        x, y, z, _ = self.initial_position
-        self.rob.go_to(x, y, z)
+        self.rob.go_to(self.initial_position.x,
+                       self.initial_position.y, self.initial_position.z)
         self.scope.set_autoexposure(CameraConstants.AUTOEXPOSURE_OFF)
         self.scope.set_exposure(CameraConstants.AUTOEXPOSURE_VALUE)
         print("Camera has reached the initial position.")
@@ -130,8 +130,6 @@ class TileScanner:
                     tile += 1
                     pbar.update(1)
                 yield col_frames
-        self.rob.end()
-        self.scope.end()
 
     def run(self, z_points):
         """
@@ -149,10 +147,11 @@ class TileScanner:
         except KeyboardInterrupt:
             print("Process interrupted by user.")
         finally:
+            self.rob.end()
+            self.scope.end()
             self.cam.release()
 
 
 if __name__ == "__main__":
     scanner = TileScanner()
-    scanner.run(folder_path=os.path.join(
-        "content", "images", "df_c"), z_points=SystemConstants.FOCUS_PLANE_POINTS)
+    scanner.run(z_points=SystemConstants.FOCUS_PLANE_POINTS)
