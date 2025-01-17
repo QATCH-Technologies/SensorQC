@@ -6,5 +6,4 @@ if __name__ == "__main__":
     calibrator = AutofocusCalibrator()
     # calibrator.run_calibration()
     scanner = TileScanner()
-    scanner.run(folder_path=os.path.join(
-        "content", "images", "df_c"), z_points=SystemConstants.FOCUS_PLANE_POINTS)
+    scanner.run(z_points=SystemConstants.FOCUS_PLANE_POINTS)
