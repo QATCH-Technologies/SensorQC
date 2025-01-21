@@ -57,6 +57,7 @@ class DinoLiteEdge:
         Disable the USB device using WMI.
         """
         if self.device:
+            # self.device.getDeviceProperties()
             if hasattr(self.device, "Disable"):
                 print(f"Disabling device: {self.device.Name}")
                 result = self.device.Disable()
@@ -67,7 +68,8 @@ class DinoLiteEdge:
                         f"Failed to disable device {self.device.Name}. Result: {result}"
                     )
             else:
-                print(f"Device {self.device.Name} does not support Disable method.")
+                print(
+                    f"Device {self.device.Name} does not support Disable method.")
 
     def enable_device(self):
         """
@@ -84,7 +86,8 @@ class DinoLiteEdge:
                         f"Failed to enable device {self.device.Name}. Result: {result}"
                     )
             else:
-                print(f"Device {self.device.Name} does not support Enable method.")
+                print(
+                    f"Device {self.device.Name} does not support Enable method.")
 
     def _handle_exit(self, signum, frame):
         print(f"Signal {signum} received. Cleaning up.")
@@ -151,7 +154,8 @@ class Microscope(DinoLiteEdge):
     def flc_off(self):
         if self._debug:
             return f"[DEBUG] FLC off."
-        self._microscope.SetFLCSwitch(self._device_index, MicroscopeConstants.FLC_OFF)
+        self._microscope.SetFLCSwitch(
+            self._device_index, MicroscopeConstants.FLC_OFF)
 
     def flc_level(self, level: int = MicroscopeConstants.DEFAULT_FLC_LEVEL):
         if self._debug:
@@ -175,7 +179,8 @@ class Microscope(DinoLiteEdge):
     def led_off(self):
         if self._debug:
             return f"[DEBUG] led off."
-        self._microscope.SetLEDState(self._device_index, MicroscopeConstants.LED_OFF)
+        self._microscope.SetLEDState(
+            self._device_index, MicroscopeConstants.LED_OFF)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def set_index(self, device_index: int = MicroscopeConstants.DEVICE_INDEX):
@@ -252,7 +257,8 @@ class Microscope(DinoLiteEdge):
 
         if fov == math.inf:
             fov = round(
-                self._microscope.FOVx(MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0,
+                self._microscope.FOVx(
+                    MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0,
                 2,
             )
             fov_info = {"magnification": 50.0, "fov_um": fov}
