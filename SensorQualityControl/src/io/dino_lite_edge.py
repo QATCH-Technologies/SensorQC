@@ -284,7 +284,7 @@ class Microscope(DinoLiteEdge):
         self.led_off()
 
 
-class Camera(DinoLiteEdge):
+class Camera:
     def __init__(
         self,
         recording=False,
@@ -292,7 +292,7 @@ class Camera(DinoLiteEdge):
         debug=SystemConstants.DEBUG,
         device_name="Dino-Lite Edge",
     ):
-        super().__init__(device_name)
+        # super().__init__(device_name)
         if debug:
             self._camera = cv2.VideoCapture(0)
         else:
