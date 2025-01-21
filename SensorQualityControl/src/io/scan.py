@@ -1,19 +1,9 @@
-import serial
-import cv2
 import time
 import os
-import signal
-import sys
-import csv  # Import the CSV module
-from image_stitcher import stitch
-import easyocr
-from PIL import Image
 import numpy as np
-from tqdm import tqdm
 from robot import Robot
 from dino_lite_edge import Camera, Microscope
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 Z_INITIAL = 9.0
 Z_RANGE = (5.5, 6.5)
@@ -38,10 +28,10 @@ scope = Microscope()
 cam = Camera()
 rob = Robot(port="COM4", debug=False)
 rob.begin()
-rob.home()
+# rob.home()
 rob.absolute_mode()
 scope.disable_microtouch()
-scope.led_on(state=1)
+scope.led_on(state=2)
 
 
 def ceildiv(a: float, b: float) -> int:
@@ -71,13 +61,11 @@ def interpolate_plane(top_left, top_right, bottom_left, bottom_right):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
         # Z-plane plot
-        ax.plot_surface(X, Y, plane, cmap="viridis",
-                        edgecolor="none", alpha=0.8)
+        ax.plot_surface(X, Y, plane, cmap="viridis", edgecolor="none", alpha=0.8)
 
         # Sensor plotting
         Z_flat = np.zeros_like(plane)
-        ax.plot_surface(X, Y, Z_flat, color="gray",
-                        edgecolor="none", alpha=0.5)
+        ax.plot_surface(X, Y, Z_flat, color="gray", edgecolor="none", alpha=0.5)
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
@@ -92,8 +80,8 @@ def init_params():
     scope.led_on(state=2)
     x, y, z, e = INITIAL_POSITION
     rob.go_to(x, y, z)
-    scope.set_autoexposure(0)
-    scope.set_exposure(414)
+    # scope.set_autoexposure(0)
+    # scope.set_exposure(414)
 
     # Wait for the print head to reach the initial position
     # while True:
@@ -143,7 +131,7 @@ def process_video(folder, z_plane):
 
 def get_input_folder():
     # Define the folder path
-    folder = os.path.join("content", "images", "df_c")
+    folder = os.path.join("content", "images", "I5_df")
     if os.path.exists(folder):
         return folder
     else:
@@ -167,7 +155,9 @@ def get_output_folder():
 
 if __name__ == "__main__":
     try:
-        plane = interpolate_plane(4.90, 5.00, 4.90, 4.95)
+        plane = interpolate_plane(
+            top_left=4.59, top_right=4.65, bottom_left=4.65, bottom_right=4.55
+        )
         input_folder = get_input_folder()  # Get folder name from the user
         # output_folder = get_output_folder()  # Get folder name from the user
         print(f"Image path is: {input_folder}")
