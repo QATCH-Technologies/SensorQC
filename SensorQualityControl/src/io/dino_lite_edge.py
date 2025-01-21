@@ -6,7 +6,7 @@ import cv2
 from DNX64 import *
 import signal
 import atexit
-from constants import CameraConstants, MicroscopeConstants
+from constants import CameraConstants, MicroscopeConstants, SystemConstants
 import wmi
 import time
 
@@ -37,19 +37,18 @@ class DinoLiteEdge:
     def find_device(self, device_name):
         """
         Find the USB device by name using WMI.
-
-        Args:
-            device_name (str): Partial or full name of the device to search for.
-
-        Returns:
-            wmi._wmi_object: The WMI object representing the device, or None if not found.
         """
-        c = wmi.WMI()
-        for device in c.Win32_PnPEntity():
-            if device.Name and device_name.lower() in device.Name.lower():
-                print(f"Device Found: {device.Name}")
-                print(f"Device Instance ID: {device.DeviceID}")
-                return device
+        try:
+            c = wmi.WMI()
+            for device in c.Win32_PnPEntity():
+                if device.Name and device_name.lower() in device.Name.lower():
+                    print(f"Device Found: {device.Name}")
+                    print(f"Device Instance ID: {device.DeviceID}")
+                    return device
+        except wmi.x_wmi as e:
+            print(f"WMI query failed: {e.com_error_text}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
         print(f"No device found matching: {device_name}")
         return None
 
@@ -58,26 +57,34 @@ class DinoLiteEdge:
         Disable the USB device using WMI.
         """
         if self.device:
-            print(f"Disabling device: {self.device.Name}")
-            result = self.device.Disable()
-            if result == 0:
-                print(f"Device {self.device.Name} disabled successfully.")
+            if hasattr(self.device, "Disable"):
+                print(f"Disabling device: {self.device.Name}")
+                result = self.device.Disable()
+                if result == 0:
+                    print(f"Device {self.device.Name} disabled successfully.")
+                else:
+                    print(
+                        f"Failed to disable device {self.device.Name}. Result: {result}"
+                    )
             else:
-                print(
-                    f"Failed to disable device {self.device.Name}. Result: {result}")
+                print(f"Device {self.device.Name} does not support Disable method.")
 
     def enable_device(self):
         """
         Enable the USB device using WMI.
         """
         if self.device:
-            print(f"Enabling device: {self.device.Name}")
-            result = self.device.Enable()
-            if result == 0:
-                print(f"Device {self.device.Name} enabled successfully.")
+            if hasattr(self.device, "Enable"):
+                print(f"Enabling device: {self.device.Name}")
+                result = self.device.Enable()
+                if result == 0:
+                    print(f"Device {self.device.Name} enabled successfully.")
+                else:
+                    print(
+                        f"Failed to enable device {self.device.Name}. Result: {result}"
+                    )
             else:
-                print(
-                    f"Failed to enable device {self.device.Name}. Result: {result}")
+                print(f"Device {self.device.Name} does not support Enable method.")
 
     def _handle_exit(self, signum, frame):
         print(f"Signal {signum} received. Cleaning up.")
@@ -92,8 +99,14 @@ class DinoLiteEdge:
 
 
 class Microscope(DinoLiteEdge):
-    def __init__(self, microscope_path, device_index, debug, device_instance_id):
-        super().__init__(device_instance_id)
+    def __init__(
+        self,
+        microscope_path=MicroscopeConstants.DNX64_PATH,
+        device_index=MicroscopeConstants.DEVICE_INDEX,
+        debug=SystemConstants.DEBUG,
+        device_name="Dino-Lite Edge",
+    ):
+        super().__init__(device_name)
         self._debug = debug
         if self._debug:
             self._device_index = device_index
@@ -138,8 +151,7 @@ class Microscope(DinoLiteEdge):
     def flc_off(self):
         if self._debug:
             return f"[DEBUG] FLC off."
-        self._microscope.SetFLCSwitch(
-            self._device_index, MicroscopeConstants.FLC_OFF)
+        self._microscope.SetFLCSwitch(self._device_index, MicroscopeConstants.FLC_OFF)
 
     def flc_level(self, level: int = MicroscopeConstants.DEFAULT_FLC_LEVEL):
         if self._debug:
@@ -163,8 +175,7 @@ class Microscope(DinoLiteEdge):
     def led_off(self):
         if self._debug:
             return f"[DEBUG] led off."
-        self._microscope.SetLEDState(
-            self._device_index, MicroscopeConstants.LED_OFF)
+        self._microscope.SetLEDState(self._device_index, MicroscopeConstants.LED_OFF)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def set_index(self, device_index: int = MicroscopeConstants.DEVICE_INDEX):
@@ -240,8 +251,10 @@ class Microscope(DinoLiteEdge):
         fov = round(fov / 1000, 2)
 
         if fov == math.inf:
-            fov = round(self._microscope.FOVx(
-                MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0, 2)
+            fov = round(
+                self._microscope.FOVx(MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0,
+                2,
+            )
             fov_info = {"magnification": 50.0, "fov_um": fov}
         else:
             fov_info = {"magnification": amr, "fov_um": fov}
@@ -275,8 +288,14 @@ class Microscope(DinoLiteEdge):
 
 
 class Camera(DinoLiteEdge):
-    def __init__(self, recording, video_writer, debug, device_instance_id):
-        super().__init__(device_instance_id)
+    def __init__(
+        self,
+        recording=False,
+        video_writer=False,
+        debug=SystemConstants.DEBUG,
+        device_name="Dino-Lite Edge",
+    ):
+        super().__init__(device_name)
         if debug:
             self._camera = cv2.VideoCapture(0)
         else:
@@ -328,7 +347,13 @@ class Camera(DinoLiteEdge):
             (0, 0, 255),
             2,
         )
-        return cv2.resize(frame, (CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[0], CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[1]))
+        return cv2.resize(
+            frame,
+            (
+                CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[0],
+                CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[1],
+            ),
+        )
 
     def run(self):
         if not self._camera.isOpened():
