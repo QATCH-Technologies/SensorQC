@@ -88,7 +88,7 @@ class StitcherTest:
 
         # Load the images
         image_path = os.path.join(
-            os.getcwd(), "../../content/images/df_c")
+            os.getcwd(), "../../content/images/bf_c_raw/bf_c_raw")
         if not os.path.exists(image_path):
             self.logger.warning(
                 f"Creating missing directory: {os.path.basename(image_path)}")

@@ -29,7 +29,6 @@ class DinoLiteEdge:
 
         if not self.device_id:
             raise ValueError(f"Device with name '{device_name}' not found.")
-
         # Register cleanup handlers
         signal.signal(signal.SIGINT, self._handle_exit)
         signal.signal(signal.SIGTERM, self._handle_exit)
