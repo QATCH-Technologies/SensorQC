@@ -7,6 +7,8 @@ from DNX64 import *
 import signal
 import atexit
 from constants import CameraConstants, MicroscopeConstants
+import wmi
+import time
 
 
 def threaded(func):
@@ -19,8 +21,79 @@ def threaded(func):
     return wrapper
 
 
-class Microscope:
-    def __init__(self, microscope_path: str = MicroscopeConstants.DNX64_PATH, device_index: int = MicroscopeConstants.DEVICE_INDEX, debug: bool = False):
+class DinoLiteEdge:
+    def __init__(self, device_name):
+        self.device_name = device_name
+        self.device = self.find_device(device_name)
+
+        if not self.device:
+            raise ValueError(f"Device with name '{device_name}' not found.")
+
+        # Register cleanup handlers
+        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGTERM, self._handle_exit)
+        atexit.register(self._cleanup)
+
+    def find_device(self, device_name):
+        """
+        Find the USB device by name using WMI.
+
+        Args:
+            device_name (str): Partial or full name of the device to search for.
+
+        Returns:
+            wmi._wmi_object: The WMI object representing the device, or None if not found.
+        """
+        c = wmi.WMI()
+        for device in c.Win32_PnPEntity():
+            if device.Name and device_name.lower() in device.Name.lower():
+                print(f"Device Found: {device.Name}")
+                print(f"Device Instance ID: {device.DeviceID}")
+                return device
+        print(f"No device found matching: {device_name}")
+        return None
+
+    def disable_device(self):
+        """
+        Disable the USB device using WMI.
+        """
+        if self.device:
+            print(f"Disabling device: {self.device.Name}")
+            result = self.device.Disable()
+            if result == 0:
+                print(f"Device {self.device.Name} disabled successfully.")
+            else:
+                print(
+                    f"Failed to disable device {self.device.Name}. Result: {result}")
+
+    def enable_device(self):
+        """
+        Enable the USB device using WMI.
+        """
+        if self.device:
+            print(f"Enabling device: {self.device.Name}")
+            result = self.device.Enable()
+            if result == 0:
+                print(f"Device {self.device.Name} enabled successfully.")
+            else:
+                print(
+                    f"Failed to enable device {self.device.Name}. Result: {result}")
+
+    def _handle_exit(self, signum, frame):
+        print(f"Signal {signum} received. Cleaning up.")
+        self._cleanup()
+        exit(0)
+
+    def _cleanup(self):
+        print("Performing cleanup...")
+        self.disable_device()
+        time.sleep(2)  # Wait before reconnecting
+        self.enable_device()
+
+
+class Microscope(DinoLiteEdge):
+    def __init__(self, microscope_path, device_index, debug, device_instance_id):
+        super().__init__(device_instance_id)
         self._debug = debug
         if self._debug:
             self._device_index = device_index
@@ -35,31 +108,12 @@ class Microscope:
             self._device_index = device_index
             self._microscope = DNX64(microscope_path)
 
-            # Initialize microscope and set default states
             self.set_index(self._device_index)
             self._microscope.EnableMicroTouch(True)
-            time.sleep(MicroscopeConstants.COMMAND_TIME)
+            time.sleep(0.1)
             self._microscope.SetEventCallback(self.microtouch)
-            time.sleep(MicroscopeConstants.COMMAND_TIME)
-
-            # Ensure the LED is off initially
+            time.sleep(0.1)
             self.led_off()
-
-            # Register cleanup handlers
-            signal.signal(signal.SIGINT, self._handle_exit)
-            signal.signal(signal.SIGTERM, self._handle_exit)
-            atexit.register(self._cleanup)
-
-    def _handle_exit(self, signum, frame):
-        """Handle termination signals to ensure cleanup."""
-        print(f"Signal {signum} received. Turning off LED and exiting.")
-        self._cleanup()
-        exit(0)
-
-    def _cleanup(self):
-        """Cleanup resources and ensure LED is off."""
-        self.led_off()
-        print("LED turned off. Resources cleaned up.")
 
     def enable_microtouch(self):
         if self._debug:
@@ -220,26 +274,20 @@ class Microscope:
         self.led_off()
 
 
-class Camera:
-    def __init__(self, recording: bool = False, video_writer=None, debug=False):
+class Camera(DinoLiteEdge):
+    def __init__(self, recording, video_writer, debug, device_instance_id):
+        super().__init__(device_instance_id)
         if debug:
             self._camera = cv2.VideoCapture(0)
         else:
             self._recording = recording
             self._video_writer = video_writer
 
-            self._camera = cv2.VideoCapture(CameraConstants.CAMERA_INDEX)
-            self._camera.set(cv2.CAP_PROP_FPS, CameraConstants.CAMERA_FPS)
-            self._camera.set(
-                cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("m", "j", "p", "g")
-            )
-            self._camera.set(
-                cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G")
-            )
-            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH,
-                             CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[0])
-            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT,
-                             CameraConstants.CAMERA_RESOLUTIONS.get("1280x960")[1])
+            # Replace with actual device index
+            self._camera = cv2.VideoCapture(0)
+            self._camera.set(cv2.CAP_PROP_FPS, 30)
+            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
             self._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
 

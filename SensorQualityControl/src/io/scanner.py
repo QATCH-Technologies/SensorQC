@@ -30,9 +30,9 @@ class TileScanner:
         self.x_max, self.y_min = final_position.x, final_position.y
         self.x_delta = x_delta
         self.y_delta = y_delta
-        self.scope = Microscope(debug=False)
-        self.cam = Camera(debug=False)
-        self.rob = Robot(port=robot_port, debug=False)
+        self.scope = Microscope(debug=SystemConstants.DEBUG)
+        self.cam = Camera(debug=SystemConstants.DEBUG)
+        self.rob = Robot(port=robot_port, debug=SystemConstants.DEBUG)
 
     def ceildiv(self, a: float, b: float) -> int:
         """Performs ceiling division."""
@@ -144,8 +144,10 @@ class TileScanner:
                     )
                     ret, frame = self.cam._camera.read()
                     if not ret:
-                        raise RuntimeError("Failed to capture image from camera.")
-                    col_frames.append({"frame": frame, "location": f"tile_{tile}"})
+                        raise RuntimeError(
+                            "Failed to capture image from camera.")
+                    col_frames.append(
+                        {"frame": frame, "location": f"tile_{tile}"})
                     tile += 1
                     pbar.update(1)
                 yield col_frames
