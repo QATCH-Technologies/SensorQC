@@ -7,8 +7,8 @@ from DNX64 import *
 import signal
 import atexit
 from constants import CameraConstants, MicroscopeConstants, SystemConstants
-import wmi
 import time
+import subprocess
 
 
 def threaded(func):
@@ -22,11 +22,12 @@ def threaded(func):
 
 
 class DinoLiteEdge:
-    def __init__(self, device_name):
+    def __init__(self, device_name, devcon_path="devcon.exe"):
         self.device_name = device_name
-        self.device = self.find_device(device_name)
+        self.devcon_path = devcon_path
+        self.device_id = self.find_device(device_name)
 
-        if not self.device:
+        if not self.device_id:
             raise ValueError(f"Device with name '{device_name}' not found.")
 
         # Register cleanup handlers
@@ -36,17 +37,18 @@ class DinoLiteEdge:
 
     def find_device(self, device_name):
         """
-        Find the USB device by name using WMI.
+        Use devcon to find the USB device by name.
         """
         try:
-            c = wmi.WMI()
-            for device in c.Win32_PnPEntity():
-                if device.Name and device_name.lower() in device.Name.lower():
-                    print(f"Device Found: {device.Name}")
-                    print(f"Device Instance ID: {device.DeviceID}")
-                    return device
-        except wmi.x_wmi as e:
-            print(f"WMI query failed: {e.com_error_text}")
+            output = subprocess.check_output(
+                [self.devcon_path, 'find', '*'], text=True)
+            for line in output.splitlines():
+                if device_name.lower() in line.lower():
+                    print(f"Device Found: {line.strip()}")
+                    # Extract the device ID (everything before the colon)
+                    return line.split(":")[0].strip()
+        except subprocess.CalledProcessError as e:
+            print(f"Error executing devcon: {e}")
         except Exception as e:
             print(f"Unexpected error: {e}")
         print(f"No device found matching: {device_name}")
@@ -54,40 +56,29 @@ class DinoLiteEdge:
 
     def disable_device(self):
         """
-        Disable the USB device using WMI.
+        Disable the USB device using devcon.
         """
-        if self.device:
-            # self.device.getDeviceProperties()
-            if hasattr(self.device, "Disable"):
-                print(f"Disabling device: {self.device.Name}")
-                result = self.device.Disable()
-                if result == 0:
-                    print(f"Device {self.device.Name} disabled successfully.")
-                else:
-                    print(
-                        f"Failed to disable device {self.device.Name}. Result: {result}"
-                    )
-            else:
-                print(
-                    f"Device {self.device.Name} does not support Disable method.")
+        if self.device_id:
+            try:
+                print(f"Disabling device: {self.device_name}")
+                subprocess.run([self.devcon_path, 'disable',
+                               self.device_id], check=True)
+                print(f"Device {self.device_name} disabled successfully.")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to disable device: {e}")
 
     def enable_device(self):
         """
-        Enable the USB device using WMI.
+        Enable the USB device using devcon.
         """
-        if self.device:
-            if hasattr(self.device, "Enable"):
-                print(f"Enabling device: {self.device.Name}")
-                result = self.device.Enable()
-                if result == 0:
-                    print(f"Device {self.device.Name} enabled successfully.")
-                else:
-                    print(
-                        f"Failed to enable device {self.device.Name}. Result: {result}"
-                    )
-            else:
-                print(
-                    f"Device {self.device.Name} does not support Enable method.")
+        if self.device_id:
+            try:
+                print(f"Enabling device: {self.device_name}")
+                subprocess.run([self.devcon_path, 'enable',
+                               self.device_id], check=True)
+                print(f"Device {self.device_name} enabled successfully.")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to enable device: {e}")
 
     def _handle_exit(self, signum, frame):
         print(f"Signal {signum} received. Cleaning up.")
