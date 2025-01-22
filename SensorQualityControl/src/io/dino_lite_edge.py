@@ -9,6 +9,8 @@ import atexit
 from constants import CameraConstants, MicroscopeConstants, SystemConstants
 import time
 import subprocess
+import logging
+logger = logging.getLogger(__name__)
 
 
 def threaded(func):
@@ -22,72 +24,71 @@ def threaded(func):
 
 
 class DinoLiteEdge:
-    def __init__(self, device_name, devcon_path="devcon.exe"):
+    def __init__(self, device_name=MicroscopeConstants.NAME, devcon_path=SystemConstants.DEVCON_PATH):
         self.device_name = device_name
         self.devcon_path = devcon_path
         self.device_id = self.find_device(device_name)
 
         if not self.device_id:
+            logger.error(f"Device with name '{device_name}' not found.")
             raise ValueError(f"Device with name '{device_name}' not found.")
         # Register cleanup handlers
         signal.signal(signal.SIGINT, self._handle_exit)
         signal.signal(signal.SIGTERM, self._handle_exit)
         atexit.register(self._cleanup)
 
-    def find_device(self, device_name):
-        """
-        Use devcon to find the USB device by name.
-        """
+    def execute_command(self, command):
+        """Executes a system command and returns the output."""
         try:
-            output = subprocess.check_output(
-                [self.devcon_path, 'find', '*'], text=True)
-            for line in output.splitlines():
-                if device_name.lower() in line.lower():
-                    print(f"Device Found: {line.strip()}")
-                    # Extract the device ID (everything before the colon)
-                    return line.split(":")[0].strip()
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing devcon: {e}")
+            result = subprocess.run(
+                command, capture_output=True, text=True, shell=True)
+            if result.returncode == 0:
+                return result.stdout.strip()
+            else:
+                logger.error(f"Error executing command: {command}")
+                logger.error(result.stderr)
+                return None
         except Exception as e:
-            print(f"Unexpected error: {e}")
-        print(f"No device found matching: {device_name}")
+            logger.error(f"An exception occurred: {e}")
+            return None
+
+    def find_device(self, device_name):
+        """Finds the device instance ID for the given device name."""
+        command = 'devcon find *'
+        output = self.execute_command(command)
+        if output:
+            for line in output.splitlines():
+                if device_name in line:
+                    # Extract the device instance ID from the line
+                    device_id = line.split(':')[0].strip()
+                    logger.info(
+                        f"Device ID for '{device_name}' found: {device_id}")
+                    return device_id
+        logger.warning(f"Device '{device_name}' not found.")
         return None
 
     def disable_device(self):
-        """
-        Disable the USB device using devcon.
-        """
-        if self.device_id:
-            try:
-                print(f"Disabling device: {self.device_name}")
-                subprocess.run([self.devcon_path, 'disable',
-                               self.device_id], check=True)
-                print(f"Device {self.device_name} disabled successfully.")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to disable device: {e}")
+        """Disables the device with the given device ID."""
+        command = f'devcon disable "{self.device_id}"'
+        output = self.execute_command(command)
+        if output:
+            logger.info(f"Device disabled: {output}")
 
     def enable_device(self):
-        """
-        Enable the USB device using devcon.
-        """
-        if self.device_id:
-            try:
-                print(f"Enabling device: {self.device_name}")
-                subprocess.run([self.devcon_path, 'enable',
-                               self.device_id], check=True)
-                print(f"Device {self.device_name} enabled successfully.")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to enable device: {e}")
+        """Enables the device with the given device ID."""
+        command = f'devcon enable "{self.device_id}"'
+        output = self.execute_command(command)
+        if output:
+            print(f"Device enabled: {output}")
 
     def _handle_exit(self, signum, frame):
-        print(f"Signal {signum} received. Cleaning up.")
+        logger.info(f"Signal {signum} received. Cleaning up.")
         self._cleanup()
         exit(0)
 
     def _cleanup(self):
-        print("Performing cleanup...")
+        logger.info("Performing cleanup...")
         self.disable_device()
-        time.sleep(2)  # Wait before reconnecting
         self.enable_device()
 
 
@@ -116,10 +117,9 @@ class Microscope(DinoLiteEdge):
 
             self.set_index(self._device_index)
             self._microscope.EnableMicroTouch(True)
-            time.sleep(0.1)
+            time.sleep(MicroscopeConstants.COMMAND_TIME)
             self._microscope.SetEventCallback(self.microtouch)
-            time.sleep(0.1)
-            self.led_off()
+            time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def enable_microtouch(self):
         if self._debug:

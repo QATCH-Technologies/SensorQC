@@ -55,6 +55,8 @@ class SystemConstants:
     Y_DELTA = -0.6
     DEBUG = False
 
+    DEVCON_PATH = 'devcon.exe'
+
     @classmethod
     def validate_focus_range(cls):
         """Ensures focus range is valid."""
