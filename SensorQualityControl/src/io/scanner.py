@@ -1,5 +1,4 @@
 import time
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -10,44 +9,42 @@ from constants import (
     SystemConstants,
     RobotConstants,
     CameraConstants,
-    MicroscopeConstants,
 )
 from tqdm import tqdm
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TileScanner:
     def __init__(
         self,
-        robot_port=RobotConstants.ROBOT_PORT,
+        robot: Robot,
+        camera: Camera,
+        microscope: Microscope,
         initial_position=SystemConstants.INITIAL_POSITION,
         final_position=SystemConstants.FINAL_POSITION,
         x_delta=SystemConstants.X_DELTA,
         y_delta=SystemConstants.Y_DELTA,
     ):
+        logger.info("Initializing tile scanner.")
         self.initial_position = initial_position
         self.final_position = final_position
         self.x_min, self.y_max = initial_position.x, initial_position.y
         self.x_max, self.y_min = final_position.x, final_position.y
         self.x_delta = x_delta
         self.y_delta = y_delta
-        self.scope = Microscope(debug=SystemConstants.DEBUG)
-        self.cam = Camera(debug=SystemConstants.DEBUG)
-        self.rob = Robot(port=robot_port, debug=SystemConstants.DEBUG)
+        self.scope = microscope
+        self.cam = camera
+        self.rob = robot
 
     def ceildiv(self, a: float, b: float) -> int:
         """Performs ceiling division."""
         return int(-(a // -b))
 
     def interpolate_focus_plane(self, z_points):
-        """
-        Interpolates a plane based on any number of z-height points.
-
-        Parameters:
-            z_points (list of Position): List of Position objects defining the plane.
-
-        Returns:
-            np.ndarray: Interpolated plane as a 2D array.
-        """
+        logger.info(
+            f"Interpolating autofocus plane using {len(z_points)} points.")
         # Extract x, y, z coordinates from the Position objects
         x_coords = np.array([point.x for point in z_points])
         y_coords = np.array([point.y for point in z_points])
@@ -99,6 +96,7 @@ class TileScanner:
         """
         Plots the interpolated focus plane in 3D.
         """
+        logger.info("Displaying interploated autofocus plane.")
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(111, projection="3d")
         ax.plot_surface(grid_x, grid_y, plane, cmap="viridis", edgecolor="k")
@@ -109,19 +107,27 @@ class TileScanner:
         plt.show()
 
     def init_params(self):
-        """Initializes camera and robot to start position."""
-        self.rob.begin()
-        self.rob.home()
-        self.rob.absolute_mode()
-        self.scope.disable_microtouch()
-        self.scope.led_on(state=MicroscopeConstants.BRIGHT_FIELD)
-        self.rob.go_to(
-            self.initial_position.x, self.initial_position.y, self.initial_position.z
-        )
         self.scope.set_autoexposure(CameraConstants.AUTOEXPOSURE_OFF)
         self.scope.set_exposure(CameraConstants.AUTOEXPOSURE_VALUE)
-        print("Camera has reached the initial position.")
-        input("Press Enter to continue...")
+        self.rob.go_to(
+            SystemConstants.INITIAL_POSITION.x,
+            SystemConstants.INITIAL_POSITION.y,
+            SystemConstants.INITIAL_POSITION.z,
+        )
+        logger.info("Gantry has reached the initial position.")
+        while True:
+            try:
+                user_input = input("Press Enter to proceed...\n")
+                if user_input == "":
+                    break
+                else:
+                    logger.warning(
+                        "Only the Enter key is required to proceed. Please try again."
+                    )
+            except KeyboardInterrupt:
+                logger.warning(
+                    "Interruptions are not allowed. Press Enter to continue."
+                )
 
     def process_video(self, z_plane):
         """Captures images at each tile location with a progress bar."""
@@ -144,6 +150,7 @@ class TileScanner:
                     )
                     ret, frame = self.cam._camera.read()
                     if not ret:
+                        logger.error("Failed to capture image from camera.")
                         raise RuntimeError(
                             "Failed to capture image from camera.")
                     col_frames.append(
@@ -161,16 +168,13 @@ class TileScanner:
             z_points (list of tuples): List of (x, y, z) points for interpolating the focus plane.
         """
         try:
-            x_grid, y_grid, plane = self.interpolate_focus_plane(z_points)
-            self.plot_focus_plane(x_grid, y_grid, plane)
+            x_grid, y_grid, focus_plane = self.interpolate_focus_plane(
+                z_points)
+            self.plot_focus_plane(x_grid, y_grid, focus_plane)
             self.init_params()
-            self.process_video(z_plane=plane)
+            self.process_video(z_plane=focus_plane)
         except KeyboardInterrupt:
             print("Process interrupted by user.")
-        finally:
-            self.rob.end()
-            self.scope.end()
-            self.cam.release()
 
 
 if __name__ == "__main__":

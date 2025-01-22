@@ -1,17 +1,14 @@
 import serial
 import time
 import logging
-from constants import RobotConstants
+from constants import RobotConstants, SystemConstants
 
-# Configure logging
-logging.basicConfig(level=logging.CRITICAL,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 class Robot(object):
     def __init__(
-        self, port: str = "COM4", baudrate: int = RobotConstants.BAUDRATE, debug: bool = False
+        self, port: str = RobotConstants.ROBOT_PORT, baudrate: int = RobotConstants.BAUDRATE, debug: bool = SystemConstants.DEBUG
     ) -> None:
         if debug:
             logger.debug("Running in DEBUG mode")

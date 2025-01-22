@@ -7,19 +7,14 @@ from robot import Robot
 from constants import SystemConstants
 from tqdm import tqdm
 
-logging.basicConfig(
-    level=logging.CRITICAL, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
 class AutofocusCalibrator:
-    def __init__(self):
-        self._scope = Microscope(debug=SystemConstants.DEBUG)
-        self._camera = Camera(debug=SystemConstants.DEBUG)
-        self._robot = Robot(debug=SystemConstants.DEBUG)
-        self._robot.begin()
-        self._robot.absolute_mode()
+    def __init__(self, microscope: Microscope, camera: Camera, robot: Robot):
+        self._scope = microscope
+        self._camera = camera
+        self._robot = robot
 
     def init_params(self):
         self._robot.go_to(
@@ -34,7 +29,7 @@ class AutofocusCalibrator:
                 if user_input == "":
                     break
                 else:
-                    print(
+                    logger.warning(
                         "Only the Enter key is required to proceed. Please try again."
                     )
             except KeyboardInterrupt:
@@ -65,14 +60,16 @@ class AutofocusCalibrator:
                 continue
 
             sharpness = self.calculate_laplacian_variance(frame)
-            logger.debug(f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
+            logger.debug(
+                f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
 
             if sharpness > max_sharpness:
                 max_sharpness = sharpness
                 best_z = z
                 best_frame = frame
 
-        logger.debug(f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
+        logger.debug(
+            f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
         return best_z, best_frame
 
     def calibrate_focus(self, focus_positions: list, z_range, step_size):
@@ -98,8 +95,6 @@ class AutofocusCalibrator:
 
     def run_calibration(self):
         try:
-            self._robot.home()
-            self._scope.led_on(state=1)
             self.init_params()
             z_height_results = self.calibrate_focus(
                 SystemConstants.FOCUS_PLANE_POINTS,
@@ -109,10 +104,8 @@ class AutofocusCalibrator:
             logger.info("Calibration Results (Z-heights):")
             logger.info(z_height_results)
             self.save_results_to_json(z_height_results)
-        finally:
-            self._camera.release()
-            self._scope.end()
-            self._robot.end()
+        except KeyboardInterrupt:
+            print("Process interrupted by user.")
 
 
 if __name__ == "__main__":
