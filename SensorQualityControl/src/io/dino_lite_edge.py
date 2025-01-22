@@ -97,7 +97,7 @@ class Microscope(DinoLiteEdge):
         microscope_path=MicroscopeConstants.DNX64_PATH,
         device_index=MicroscopeConstants.DEVICE_INDEX,
         debug=SystemConstants.DEBUG,
-        device_name="Dino-Lite Edge",
+        device_name=MicroscopeConstants.NAME,
     ):
         super().__init__(device_name)
         self._debug = debug
