@@ -9,169 +9,175 @@ from process_pipeline import ProcessPipeline
 from process_stitch import ProcessStitcher
 from process_detect import ProcessDetector
 from process_common import NUM_TILES, NUM_ROWS
-from io.runner import ScanRunner
+
+LOG_LEVEL_MAIN = logging.INFO
+LOG_LEVEL_PIPE = logging.INFO
+LOG_LEVEL_STITCH = logging.DEBUG
+LOG_LEVEL_DETECT = logging.DEBUG
+
+RUN_SCAN_REALTIME = False
 
 
-class Stitcher:
-    def __init__(self, image_dir, run_scan_realtime=False, log_levels=None):
-        self.image_dir = image_dir
-        self.run_scan_realtime = run_scan_realtime
-        self.log_levels = log_levels or {
-            'main': logging.INFO,
-            'pipeline': logging.INFO,
-            'stitch': logging.DEBUG,
-            'detect': logging.DEBUG
-        }
+class StitcherTest:
 
-        # Setup logging
-        self.logger = self._initialize_logger()
-        self.logger.debug("Initializing Stitcher...")
+    def __init__(self):
 
-        # Setup queues
-        self._setup_queues()
+        # Instantiate multiprocessing logger
+        h = logging.StreamHandler()
+        f = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        h.setFormatter(f)
+        self.__log__(h)
 
-        # Initialize processes
-        self.pipeline = ProcessPipeline(
-            queue_log=self.queue_log,
-            queue_rx1=self.queue_main_to_children,
-            queue_tx1A=self.queue_main_to_stitch,
-            queue_tx1B=self.queue_main_to_detect,
-            log_level=self.log_levels['pipeline']
-        )
+        self.logger.debug("Main Process initializing...")
 
-        self.stitcher = ProcessStitcher(
-            queue_log=self.queue_log,
-            queue_rx1A=self.queue_main_to_stitch,
-            queue_rx1B=self.queue_main_to_detect,
-            queue_rx2=self.queue_detect_to_stitch,
-            queue_tx3=self.queue_stitch_to_detect,
-            log_level=self.log_levels['stitch']
-        )
+        # Queue 0: Logging queue used to handle logging messages from all child processes
+        # Queue 1: Passes a list of tiles as rows are captured to stitcher & detector processes
+        # Queue 1A: Sub-queue of Queue 1 for handling commands from main to stitcher process
+        # Queue 1B: Sub-queue of Queue 1 for handling commands from main to detector process
+        # Queue 2: Passes calculated tile offsets from detector to stitcher process
+        # Queue 3: Passes calculated avg/std offsets from stitcher to detector process
+        self.queue0_logger = multiprocessing.Queue()
+        self.queue1_main_to_children = multiprocessing.Queue()
+        self._queue1A_main_to_stitch = multiprocessing.Queue()
+        self._queue1B_main_to_detect = multiprocessing.Queue()
+        self.queue2_detect_to_stitch = multiprocessing.Queue()
+        self.queue3_stitch_to_detect = multiprocessing.Queue()
 
-        self.detector = ProcessDetector(
-            queue_log=self.queue_log,
-            queue_rx1B=self.queue_main_to_detect,
-            queue_tx2=self.queue_detect_to_stitch,
-            queue_rx3=self.queue_stitch_to_detect,
-            log_level=self.log_levels['detect']
-        )
-
-    def _initialize_logger(self):
-        """Initialize the logger."""
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.setLevel(self.log_levels['main'])
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        logger.addHandler(handler)
-
-        # Queue listener for multiprocessing logging
-        self.queue_log = multiprocessing.Queue()
-        self.log_listener = QueueListener(self.queue_log, handler)
+        # Start handling logger messages from children processes
+        self.log_listener = QueueListener(self.queue0_logger, h)
         self.log_listener.start()
 
-        return logger
+        # Process 0: Pipeline - splits queues to children (Queue 1 --> 1A & 1B)
+        self.pipeline = ProcessPipeline(
+            queue_log=self.queue0_logger,
+            queue_rx1=self.queue1_main_to_children,
+            queue_tx1A=self._queue1A_main_to_stitch,
+            queue_tx1B=self._queue1B_main_to_detect,
+            log_level=LOG_LEVEL_PIPE,
+        )
 
-    def _setup_queues(self):
-        """Setup multiprocessing queues."""
-        self.queue_main_to_children = multiprocessing.Queue()
-        self.queue_main_to_stitch = multiprocessing.Queue()
-        self.queue_main_to_detect = multiprocessing.Queue()
-        self.queue_detect_to_stitch = multiprocessing.Queue()
-        self.queue_stitch_to_detect = multiprocessing.Queue()
+        # Process 1: Stitcher - combines tiles
+        self.stitcher = ProcessStitcher(
+            queue_log=self.queue0_logger,
+            queue_rx1A=self._queue1A_main_to_stitch,
+            queue_rx1B=self._queue1B_main_to_detect,
+            queue_rx2=self.queue2_detect_to_stitch,
+            queue_tx3=self.queue3_stitch_to_detect,
+            log_level=LOG_LEVEL_STITCH,
+        )
 
-    def _load_images(self):
-        """Load and sort image file paths."""
-        if not os.path.exists(self.image_dir):
-            self.logger.warning(
-                f"Creating missing directory: {os.path.basename(self.image_dir)}")
-            os.makedirs(self.image_dir)
+        # Process 2: Detector - detects offsets
+        self.detector = ProcessDetector(
+            queue_log=self.queue0_logger,
+            queue_rx1B=self._queue1B_main_to_detect,
+            queue_tx2=self.queue2_detect_to_stitch,
+            queue_rx3=self.queue3_stitch_to_detect,
+            log_level=LOG_LEVEL_DETECT,
+        )
 
-        if self.run_scan_realtime:
-            image_paths = [f"tile_{i + 1}.jpg" for i in range(NUM_TILES)]
-        else:
-            image_paths = [
-                path for path in os.listdir(self.image_dir)
-                if path.endswith("jpg") and not path.startswith("stitched")
-            ]
+        self.logger.debug("Main Process initialized")
 
-        image_ids = [int(path[path.rindex("_") + 1:-4])
-                     for path in image_paths]
-        sort_order = np.argsort(image_ids)
-        return np.array(image_paths)[sort_order], np.array(image_ids)[sort_order]
+    def __log__(self, h):
 
-    def _calculate_grid(self, total_tiles):
-        """Calculate the grid dimensions based on total tiles and rows."""
-        grid_rows = NUM_ROWS
-        grid_cols = total_tiles / grid_rows
-        if grid_cols % 1 != 0:
-            raise ValueError(
-                "Number of tiles not divisible by rows. Check and try again.")
-        return grid_rows, int(grid_cols)
+        self.logger = logging.getLogger(__class__.__name__)
+        self.logger.addHandler(h)
+        self.logger.setLevel(LOG_LEVEL_MAIN)
 
     def run(self):
-        """Run the Stitcher pipeline."""
-        image_paths, image_ids = self._load_images()
+
+        # Load the images
+        image_path = os.path.join(
+            os.getcwd(), "../../content/images/df_c")
+        if not os.path.exists(image_path):
+            self.logger.warning(
+                f"Creating missing directory: {os.path.basename(image_path)}")
+            os.makedirs(image_path)
+
+        if RUN_SCAN_REALTIME:
+            self.logger.info(f"Image path is: {image_path}")
+            image_paths = [f"tile_{i+1}.jpg" for i in range(NUM_TILES)]
+        else:
+            image_paths = [path for path in os.listdir(image_path) if path.endswith(
+                "jpg") and not path.startswith("stitched")]
+        image_ids = [int(path[path.rindex("_")+1:-4]) for path in image_paths]
+        sort_order = np.argsort(image_ids)
+        sorted_paths = np.array(image_paths)[sort_order]
+        image_ids = np.array(image_ids)[sort_order]
+
+        # TODO calculate 'grid_rows' automatically, somehow
         total_tiles = len(image_ids)
-        grid_rows, grid_cols = self._calculate_grid(total_tiles)
+        grid_rows = NUM_ROWS  # vertical tile count, Y-axis
+        grid_cols = total_tiles / grid_rows  # horizontal tile count, X-axis
+        assert grid_cols % 1 == 0, "Number of tiles not divisible by 'rows'. Check and try again."
+        grid_cols = int(grid_cols)
 
-        image_positions = [
-            {"col": (id - 1) % grid_rows, "row": int((id - 1) / grid_rows)}
-            for id in image_ids
-        ]
+        image_row = [(id - 1) % grid_rows for id in image_ids]
+        image_col = [int((id - 1) / grid_rows) for id in image_ids]
 
-        # Configure and start processes
+        image_pos = []
+        for i in range(len(image_ids)):
+            image_pos.append({"col": image_col[i], "row": image_row[i]})
+
+        # self.logger.warning('This is a warning')
+        # self.logger.error('This is an error')
+
+        # Configure and start other processes, they will idle until data is queued
         processes = ['pipeline', 'detector', 'stitcher']
-        for proc_name in processes:
-            proc = getattr(self, proc_name)
-            proc.config(self.image_dir)
+        for pn in processes:
+            proc = getattr(self, pn)
+            proc.config(image_path)
             proc.start()
 
-        for col in range(grid_cols):
-            if self.run_scan_realtime:
+        # self.pipeline.start()
+        # self.detector.start()
+        # self.stitcher.start()
 
-                self._wait_for_realtime_tiles(col, grid_rows, total_tiles)
-            elif col > 0:
+        for a in range(grid_cols):
+            # if a == 5: break
+
+            if RUN_SCAN_REALTIME:
+                # get number of tiles scanned so far and wait until we have a full row to process
+                self.logger.info("Waiting for scanned images to be read...")
+                num_tiles, last_num_tiles = -1, -1
+                while num_tiles < (a + 1) * grid_rows:
+                    num_tiles = len([path for path in os.listdir(image_path) if path.endswith(
+                        "jpg") and not path.startswith("stitched")])
+                    if num_tiles != last_num_tiles:
+                        self.logger.debug(f"Found {num_tiles} tiles...")
+                    if a == 0 and num_tiles == total_tiles:
+                        raise Exception(
+                            "Running in real-time mode but all the tiles already exist! " +
+                            "Pick a new path or delete JPGs and try again.")
+                    last_num_tiles = num_tiles
+            elif a > 0:
                 time.sleep(5)
-            this_row = [
-                image_paths[idx] for idx, pos in enumerate(image_positions) if pos["col"] == col
-            ]
 
-            self.logger.info(f"Passing in tiles for column {col + 1}")
-            self.queue_main_to_children.put(this_row)
+            this_row = []
+            for b in range(total_tiles):
+                if image_pos[b]["col"] == a:
+                    this_row.append(sorted_paths[b])
+            # this_row = list(this_row[::-1]) # reverse, work bottom to top
 
-        self.queue_main_to_children.put(None)  # Sentinel value
+            self.logger.info(f"Passing in tiles for column {a+1}")
+            self.logger.debug(f"Enqueueing: {this_row} (len={len(this_row)})")
+            self.queue1_main_to_children.put(this_row)
 
-        for proc_name in processes:
-            self.logger.debug(f"Waiting on {proc_name} to finish...")
-            proc = getattr(self, proc_name)
+        # Queueing sentinel value indicates end of processing
+        self.queue1_main_to_children.put(None)
+
+        # Wait for processes to finish
+        for pn in processes:
+            self.logger.debug(f"Waiting on {pn} to finish...")
+            proc = getattr(self, pn)
             proc.join()
 
-        self.logger.debug("Shutting down logger...")
+        # Purge log listener queue and stop thread
+        self.logger.debug("Waiting on logger to finish...")
         self.log_listener.stop()
 
-    def _wait_for_realtime_tiles(self, col, grid_rows, total_tiles):
-        """Wait for real-time tiles to be scanned."""
-        self.logger.info("Waiting for scanned images to be read...")
-        num_tiles, last_num_tiles = -1, -1
-
-        while num_tiles < (col + 1) * grid_rows:
-            num_tiles = len([
-                path for path in os.listdir(self.image_dir)
-                if path.endswith("jpg") and not path.startswith("stitched")
-            ])
-            if num_tiles != last_num_tiles:
-                self.logger.debug(f"Found {num_tiles} tiles...")
-            if col == 0 and num_tiles == total_tiles:
-                raise Exception(
-                    "Running in real-time mode but all the tiles already exist! "
-                    "Pick a new path or delete JPGs and try again."
-                )
-            last_num_tiles = num_tiles
+        self.logger.debug("All tasks finished, closing...")
 
 
 if __name__ == "__main__":
-    IMAGE_DIR = os.path.join(
-        os.getcwd(), "../../content/images/bf_c_raw/bf_c_raw")
-    stitcher = Stitcher(image_dir=IMAGE_DIR, run_scan_realtime=False)
-    stitcher.run()
+    StitcherTest().run()

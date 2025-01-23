@@ -129,36 +129,6 @@ class TileScanner:
                     "Interruptions are not allowed. Press Enter to continue."
                 )
 
-    def process_video(self, z_plane):
-        """Captures images at each tile location with a progress bar."""
-        tile = 1
-        num_rows, num_cols = z_plane.shape
-        total_tiles = num_rows * num_cols  # Total number of tiles
-        x_values = np.linspace(self.x_min, self.x_max, num_rows)
-        y_values = np.linspace(self.y_max, self.y_min, num_cols)
-
-        # Initialize the progress bar
-        with tqdm(total=total_tiles, desc="Capturing Tiles", unit="tile") as pbar:
-            for row_index, x in enumerate(x_values):
-                col_frames = []
-                for col_index, y in enumerate(y_values):
-                    self.rob.go_to(x, y, z_plane[row_index, col_index])
-                    time.sleep(
-                        RobotConstants.COLUMN_DELAY
-                        if col_index != 0
-                        else RobotConstants.ROW_DELAY
-                    )
-                    ret, frame = self.cam._camera.read()
-                    if not ret:
-                        logger.error("Failed to capture image from camera.")
-                        raise RuntimeError(
-                            "Failed to capture image from camera.")
-                    col_frames.append(
-                        {"frame": frame, "location": f"tile_{tile}"})
-                    tile += 1
-                    pbar.update(1)
-                yield col_frames
-
     def run(self, z_points):
         """
         Runs the scanning process with the given folder path and z-height points.
@@ -172,7 +142,34 @@ class TileScanner:
                 z_points)
             self.plot_focus_plane(x_grid, y_grid, focus_plane)
             self.init_params()
-            self.process_video(z_plane=focus_plane)
+            tile = 1
+            num_rows, num_cols = focus_plane.shape
+            total_tiles = num_rows * num_cols  # Total number of tiles
+            x_values = np.linspace(self.x_min, self.x_max, num_rows)
+            y_values = np.linspace(self.y_max, self.y_min, num_cols)
+
+            # Initialize the progress bar
+            with tqdm(total=total_tiles, desc="Capturing Tiles", unit="tile") as pbar:
+                for row_index, x in enumerate(x_values):
+                    col_frames = []
+                    for col_index, y in enumerate(y_values):
+                        self.rob.go_to(x, y, focus_plane[row_index, col_index])
+                        time.sleep(
+                            RobotConstants.COLUMN_DELAY
+                            if col_index != 0
+                            else RobotConstants.ROW_DELAY
+                        )
+                        ret, frame = self.cam._camera.read()
+                        if not ret:
+                            logger.error(
+                                "Failed to capture image from camera.")
+                            raise RuntimeError(
+                                "Failed to capture image from camera.")
+                        col_frames.append(
+                            {"frame": frame, "location": f"tile_{tile}"})
+                        tile += 1
+                        pbar.update(1)
+                    yield col_frames
         except KeyboardInterrupt:
             print("Process interrupted by user.")
 

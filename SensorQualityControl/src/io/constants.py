@@ -49,7 +49,7 @@ class SystemConstants:
     ]
 
     FOCUS_RANGE = (4.0, 5.0)  # Min and max focus range
-    FOCUS_STEP = 0.05  # Incremental focus step size
+    FOCUS_STEP = 0.05
 
     X_DELTA = 0.6
     Y_DELTA = -0.6
