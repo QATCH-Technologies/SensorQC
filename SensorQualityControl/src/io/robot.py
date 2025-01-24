@@ -8,7 +8,10 @@ logger = logging.getLogger(__name__)
 
 class Robot(object):
     def __init__(
-        self, port: str = RobotConstants.ROBOT_PORT, baudrate: int = RobotConstants.BAUDRATE, debug: bool = SystemConstants.DEBUG
+        self,
+        port: str = RobotConstants.ROBOT_PORT,
+        baudrate: int = RobotConstants.BAUDRATE,
+        debug: bool = SystemConstants.DEBUG,
     ) -> None:
         if debug:
             logger.debug("Running in DEBUG mode")
@@ -38,37 +41,48 @@ class Robot(object):
             time.sleep(RobotConstants.COMMAND_TIME)
             return command
 
-    def translate_x(self, distance: float, speed: float = RobotConstants.FEED_RATE) -> str:
+    def translate_x(
+        self, distance: float, speed: float = RobotConstants.XY_FEED_RATE
+    ) -> str:
         g_code = f"G0 X{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
-        logger.info(f"translate_x response: {response}")
+        logger.debug(f"translate_x response: {response}")
         return response
 
-    def translate_y(self, distance: float, speed: float = RobotConstants.FEED_RATE) -> str:
+    def translate_y(
+        self, distance: float, speed: float = RobotConstants.XY_FEED_RATE
+    ) -> str:
         g_code = f"G0 Y{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
-        logger.info(f"translate_y response: {response}")
+        logger.debug(f"translate_y response: {response}")
         return response
 
-    def translate_z(self, distance: float, speed: float = RobotConstants.FEED_RATE) -> str:
+    def translate_z(
+        self, distance: float, speed: float = RobotConstants.XY_FEED_RATE
+    ) -> str:
         g_code = f"G0 Z{distance:.2f} F{speed:.2f}"
         response = self.send_gcode(g_code)
-        logger.info(f"translate_z response: {response}")
+        logger.debug(f"translate_z response: {response}")
         return response
 
-    def go_to(self, x_position, y_position, z_position) -> str:
+    def go_to(
+        self,
+        x_position,
+        y_position,
+        z_position,
+    ) -> str:
         g_code = f"G00 X{x_position:.2f} Y{y_position:.2f} Z{z_position:.2f}\n"
         response = self.send_gcode(g_code)
         return response
 
     def absolute_mode(self) -> str:
-        logger.info("[INFO] Running in absolute mode.")
+        logger.info("Running in absolute mode.")
         g_code = "G90"
         response = self.send_gcode(g_code)
         return response
 
     def relative_mode(self) -> str:
-        logger.info("[INFO] Running in relative mode.")
+        logger.info("Running in relative mode.")
         g_code = "G91"
         response = self.send_gcode(g_code)
         return response
@@ -91,14 +105,14 @@ class Robot(object):
             if response_1.lower() == "ok":
                 return "ok"
 
-            raise IOError(
-                "Error during robot initialization; unrecognized command.")
+            raise IOError("Error during robot initialization; unrecognized command.")
 
         else:
             logger.debug("DEBUG MODE: start")
 
     def end(self) -> None:
         if self._serial:
+            self.go_to(150, 150, z_position=10.0)
             self._serial.close()
         else:
             logger.debug("DEBUG MODE: end")

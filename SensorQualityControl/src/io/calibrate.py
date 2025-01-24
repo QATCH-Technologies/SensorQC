@@ -4,8 +4,9 @@ import json
 import logging
 from dino_lite_edge import Camera, Microscope
 from robot import Robot
-from constants import SystemConstants
+from constants import SystemConstants, RobotConstants
 from tqdm import tqdm
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +24,7 @@ class AutofocusCalibrator:
             SystemConstants.INITIAL_POSITION.z,
         )
         logger.info("Gantry has reached the initial position.")
-        while True:
-            try:
-                user_input = input("Press Enter to proceed...\n")
-                if user_input == "":
-                    break
-                else:
-                    logger.warning(
-                        "Only the Enter key is required to proceed. Please try again."
-                    )
-            except KeyboardInterrupt:
-                logger.warning(
-                    "Interruptions are not allowed. Press Enter to continue."
-                )
+        input("Wait for gantry to stop moving. Press any key to proceed.")
 
     @staticmethod
     def calculate_laplacian_variance(image):
@@ -53,28 +42,27 @@ class AutofocusCalibrator:
         for z in np.arange(z_min, z_max, step_size):
             logger.debug(f"Moving to Z={z} for autofocus check...")
             self._robot.translate_z(z)
-
+            time.sleep(0.1)
             status, frame = self._camera._camera.read()
             if not status:
                 # logger.warning("Failed to capture image.")
                 continue
 
             sharpness = self.calculate_laplacian_variance(frame)
-            logger.debug(
-                f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
+            logger.debug(f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
 
             if sharpness > max_sharpness:
                 max_sharpness = sharpness
                 best_z = z
                 best_frame = frame
 
-        logger.debug(
-            f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
+        logger.debug(f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
         return best_z, best_frame
 
     def calibrate_focus(self, focus_positions: list, z_range, step_size):
         z_heights = {}
         for position in tqdm(focus_positions, desc="Calibrating focus"):
+            time.sleep(RobotConstants.ROW_DELAY)
             logger.debug(
                 f"Moving to {position.location_name}: (X={position.x}, Y={position.y})"
             )
@@ -85,6 +73,7 @@ class AutofocusCalibrator:
             cv2.imwrite(cal_filename, best_frame)
             position.z = z_height
             z_heights[position.location_name] = z_height
+
         return z_heights
 
     @staticmethod

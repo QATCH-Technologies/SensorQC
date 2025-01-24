@@ -12,6 +12,9 @@ from constants import (
 )
 from tqdm import tqdm
 import logging
+import os
+import cv2
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +46,7 @@ class TileScanner:
         return int(-(a // -b))
 
     def interpolate_focus_plane(self, z_points):
-        logger.info(
-            f"Interpolating autofocus plane using {len(z_points)} points.")
+        logger.info(f"Interpolating autofocus plane using {len(z_points)} points.")
         # Extract x, y, z coordinates from the Position objects
         x_coords = np.array([point.x for point in z_points])
         y_coords = np.array([point.y for point in z_points])
@@ -107,69 +109,91 @@ class TileScanner:
         plt.show()
 
     def init_params(self):
-        self.scope.set_autoexposure(CameraConstants.AUTOEXPOSURE_OFF)
-        self.scope.set_exposure(CameraConstants.AUTOEXPOSURE_VALUE)
         self.rob.go_to(
             SystemConstants.INITIAL_POSITION.x,
             SystemConstants.INITIAL_POSITION.y,
             SystemConstants.INITIAL_POSITION.z,
         )
         logger.info("Gantry has reached the initial position.")
-        while True:
-            try:
-                user_input = input("Press Enter to proceed...\n")
-                if user_input == "":
-                    break
-                else:
-                    logger.warning(
-                        "Only the Enter key is required to proceed. Please try again."
-                    )
-            except KeyboardInterrupt:
-                logger.warning(
-                    "Interruptions are not allowed. Press Enter to continue."
-                )
+        input("Wait for gantry to stop moving. Press any key to proceed.")
 
-    def run(self, z_points):
+    def report_column_frames(self, x, y, focus_plane, tile, row_index):
         """
-        Runs the scanning process with the given folder path and z-height points.
+        Captures each frame for a specific column.
 
         Parameters:
-            folder_path (str): Path to the folder containing the data.
+            x (float): The x-coordinate.
+            y (float): The y-coordinate.
+            focus_plane (ndarray): The focus plane data used for z-coordinate interpolation.
+            tile (int): The current tile number.
+
+        Returns:
+            col_frames (list): A list of frames for the given column.
+        """
+        col_frames = []
+        for col_index, y_value in enumerate(y):
+            self.rob.go_to(x, y_value, focus_plane[row_index, col_index])
+            time.sleep(
+                RobotConstants.COLUMN_DELAY
+                if col_index != 0
+                else RobotConstants.ROW_DELAY
+            )
+            ret, frame = self.cam._camera.read()
+            if not ret:
+                logger.error("Failed to capture image from camera.")
+                raise RuntimeError("Failed to capture image from camera.")
+            col_frames.append(frame)
+            tile += 1
+        return col_frames
+
+    def iterate_through_rows(self, x_values, y_values, focus_plane, output_dir):
+        tile = 1
+        num_rows, num_cols = focus_plane.shape
+        total_tiles = num_rows * num_cols  # Total number of tiles
+
+        # Initialize the progress bar
+        with tqdm(total=total_tiles, desc="Capturing Tiles", unit="tile") as pbar:
+            for row_index, x in enumerate(x_values):
+                # Collect the column frames for this row
+                col_frames = self.report_column_frames(
+                    x, y_values, focus_plane, tile, row_index
+                )
+
+                # Create the directory if it doesn't exist
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+
+                # Save each frame as a .jpg file
+                for i, frame_data in enumerate(col_frames):
+                    frame = frame_data
+                    file_name = f"tile_{(row_index * num_cols) + i}.jpg"
+                    file_path = os.path.join(output_dir, file_name)
+                    cv2.imwrite(file_path, frame)  # Save the frame as a .jpg
+                    logger.info(f"Saved {file_path}")
+
+                tile += len(col_frames)
+                pbar.update(num_cols)
+
+    def run(self, z_points, runname):
+        """
+        Runs the scanning process with the given z-height points.
+
+        Parameters:
             z_points (list of tuples): List of (x, y, z) points for interpolating the focus plane.
         """
         try:
-            x_grid, y_grid, focus_plane = self.interpolate_focus_plane(
-                z_points)
+            x_grid, y_grid, focus_plane = self.interpolate_focus_plane(z_points)
             self.plot_focus_plane(x_grid, y_grid, focus_plane)
             self.init_params()
-            tile = 1
-            num_rows, num_cols = focus_plane.shape
-            total_tiles = num_rows * num_cols  # Total number of tiles
-            x_values = np.linspace(self.x_min, self.x_max, num_rows)
-            y_values = np.linspace(self.y_max, self.y_min, num_cols)
 
-            # Initialize the progress bar
-            with tqdm(total=total_tiles, desc="Capturing Tiles", unit="tile") as pbar:
-                for row_index, x in enumerate(x_values):
-                    col_frames = []
-                    for col_index, y in enumerate(y_values):
-                        self.rob.go_to(x, y, focus_plane[row_index, col_index])
-                        time.sleep(
-                            RobotConstants.COLUMN_DELAY
-                            if col_index != 0
-                            else RobotConstants.ROW_DELAY
-                        )
-                        ret, frame = self.cam._camera.read()
-                        if not ret:
-                            logger.error(
-                                "Failed to capture image from camera.")
-                            raise RuntimeError(
-                                "Failed to capture image from camera.")
-                        col_frames.append(
-                            {"frame": frame, "location": f"tile_{tile}"})
-                        tile += 1
-                        pbar.update(1)
-                    yield col_frames
+            x_values = np.linspace(self.x_min, self.x_max, focus_plane.shape[0])
+            y_values = np.linspace(self.y_max, self.y_min, focus_plane.shape[1])
+
+            output_dir = os.path.join(
+                r"C:\Users\QATCH\Documents\SVN Repos\SensorQC", runname
+            )
+            self.iterate_through_rows(x_values, y_values, focus_plane, output_dir)
+
         except KeyboardInterrupt:
             print("Process interrupted by user.")
 
