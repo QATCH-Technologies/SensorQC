@@ -74,7 +74,7 @@ class RobotConstants:
     UNITS = Units.METRIC.value  # Default units
     XY_FEED_RATE = 600  # Movement speed in mm/min
     Z_FEED_RATE = 20
-    COMMAND_TIME = 0.1  # Time between commands in seconds
+    COMMAND_TIME = 0.025  # Time between commands in seconds
     BAUDRATE = 115200  # Communication speed
     COLUMN_DELAY = 0.4
     ROW_DELAY = 2

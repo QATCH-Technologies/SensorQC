@@ -105,8 +105,7 @@ class Robot(object):
             if response_1.lower() == "ok":
                 return "ok"
 
-            raise IOError(
-                "Error during robot initialization; unrecognized command.")
+            raise IOError("Error during robot initialization; unrecognized command.")
 
         else:
             logger.debug("DEBUG MODE: start")
@@ -116,7 +115,7 @@ class Robot(object):
 
     def end(self) -> None:
         if self._serial:
-            self.go_to()
+            self.out_of_way()
             self._serial.close()
         else:
             logger.debug("DEBUG MODE: end")
