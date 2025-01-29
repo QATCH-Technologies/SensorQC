@@ -1,25 +1,40 @@
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QGridLayout, QLabel, QVBoxLayout, QPushButton,
-    QHBoxLayout, QTextEdit, QInputDialog, QProgressBar, QMenuBar, QAction,
-    QComboBox, QDialog, QFormLayout
+    QApplication,
+    QWidget,
+    QGridLayout,
+    QLabel,
+    QVBoxLayout,
+    QPushButton,
+    QHBoxLayout,
+    QTextEdit,
+    QInputDialog,
+    QProgressBar,
+    QMenuBar,
+    QAction,
 )
 from PyQt5.QtCore import pyqtSignal, QObject, QTimer
 import sys
-import time
 import serial.tools.list_ports
 import cv2
 from robot import Robot
 from constants import SystemConstants
 import os
+import math
 
 
 class CaptureSignal(QObject):
     """This class emits a signal when a tile is captured."""
+
     tile_captured = pyqtSignal(int, int)
 
 
 class ScanUI(QWidget):
-    def __init__(self, top_left, bottom_right, tile_size=(SystemConstants.X_DELTA, SystemConstants.Y_DELTA)):
+    def __init__(
+        self,
+        top_left,
+        bottom_right,
+        tile_size=(SystemConstants.X_DELTA, SystemConstants.Y_DELTA),
+    ):
         super().__init__()
         self.top_left = top_left
         self.bottom_right = bottom_right
@@ -30,8 +45,8 @@ class ScanUI(QWidget):
         self.rect_height = abs(bottom_right[1] - top_left[1])
 
         # Compute how many tiles fit
-        self.num_tiles_x = int(self.rect_width / self.tile_width)
-        self.num_tiles_y = int(self.rect_height / self.tile_height)
+        self.num_tiles_x = int(math.ceil(self.rect_width / self.tile_width))
+        self.num_tiles_y = int(math.ceil(self.rect_height / self.tile_height))
 
         self.tiles = {}  # Dictionary to store tile labels
         self.tile_positions = {}  # Dictionary to store physical positions in mm
@@ -47,6 +62,7 @@ class ScanUI(QWidget):
         self.capture_signal.tile_captured.connect(self.update_tile_color)
         self.robot = None
         self.cap = None
+        self.row_images = []
         self.initUI()
 
     def initUI(self):
@@ -112,7 +128,8 @@ class ScanUI(QWidget):
             for j in range(self.num_tiles_x):
                 label = QLabel(f"{i},{j}")
                 label.setStyleSheet(
-                    "border: 1px solid black; background-color: white; padding: 5px;")
+                    "border: 1px solid black; background-color: white; padding: 5px;"
+                )
                 self.grid_layout.addWidget(label, i, j)
                 self.tiles[(i, j)] = label
 
@@ -123,7 +140,8 @@ class ScanUI(QWidget):
                 self.tile_positions[(i, j)] = (x_pos, y_pos)
 
         self.log_to_console(
-            f"Grid generated with {self.num_tiles_x} x {self.num_tiles_y} cells.")
+            f"Grid generated with {self.num_tiles_x} x {self.num_tiles_y} cells."
+        )
 
     def reset_action(self):
         """Resets the scan and clears the UI."""
@@ -136,16 +154,17 @@ class ScanUI(QWidget):
         # Reset tile colors to white
         for label in self.tiles.values():
             label.setStyleSheet(
-                "border: 1px solid black; background-color: white; padding: 5px;")
+                "border: 1px solid black; background-color: white; padding: 5px;"
+            )
 
-        self.log_to_console(
-            "Scan reset: Grid cleared and ready for a new run.")
+        self.log_to_console("Scan reset: Grid cleared and ready for a new run.")
 
     def run_action(self):
         """Prompt user for a run name and start scanning."""
         if self.robot is None:
             self.log_to_console(
-                "Error: No robot selected. Please select a serial port before running.")
+                "Error: No robot selected. Please select a serial port before running."
+            )
             return
 
         runname, ok = QInputDialog.getText(self, "Run Name", "Enter run name:")
@@ -161,7 +180,8 @@ class ScanUI(QWidget):
         """Resume the scan from the last stopped position."""
         if not self.runname:
             self.log_to_console(
-                "No previous run found to resume. Start a new run instead.")
+                "No previous run found to resume. Start a new run instead."
+            )
             return
 
         self.log_to_console(f"Resuming scan from tile {self.resume_index}...")
@@ -205,30 +225,33 @@ class ScanUI(QWidget):
             self.log_to_console("Scanning complete.")
             return
 
-        row_images = []
-
         row = self.scan_index // self.num_tiles_x
-        col = (self.scan_index % self.num_tiles_x) if row % 2 == 0 else (
-            self.num_tiles_x - 1 - (self.scan_index % self.num_tiles_x))
+        col = (
+            (self.scan_index % self.num_tiles_x)
+            if row % 2 == 0
+            else (self.num_tiles_x - 1 - (self.scan_index % self.num_tiles_x))
+        )
 
         x, y = self.tile_positions[(row, col)]
         self.log_to_console(
-            f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})")
-        self.robot.go_to(x_position=x, y_position=y, z_position=10.0)
+            f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})"
+        )
+        self.robot.go_to(x_position=x, y_position=y, z_position=7.10)
 
         # Ensure runname is set
         if not self.runname:
             self.log_to_console(
-                "Error: Run name is not set. Please provide a run name before scanning.")
+                "Error: Run name is not set. Please provide a run name before scanning."
+            )
             return
 
         base_dir = os.path.join(SystemConstants.SERVER_PATH, self.runname)
-
+        os.makedirs(base_dir, exist_ok=True)
         # Capture an image using the selected camera
         if self.cap is not None:
             ret, frame = self.cap.read()
             if ret:
-                row_images.append(frame)
+                self.row_images.append(frame)
             else:
                 self.log_to_console(f"Error capturing image at ({row}, {col})")
 
@@ -239,11 +262,13 @@ class ScanUI(QWidget):
 
         # Check if the row is complete and log it
         if self.scan_index % self.num_tiles_x == 0:
-            for col, image in enumerate(row_images):
+            for col, image in enumerate(self.row_images):
                 image_path = os.path.join(base_dir, f"tile_{row}_{col}.jpg")
                 cv2.imwrite(image_path, image)
             self.log_to_console(
-                f"Row {row} capture complete. Images saved in '{base_dir}/'")
+                f"Row {row} capture complete. Images saved in '{base_dir}/'"
+            )
+            self.row_images = []
 
     def closeEvent(self, event):
         """Ensure resources are released on window close."""
@@ -267,7 +292,8 @@ class ScanUI(QWidget):
         """Update tile color to green when captured."""
         if (row, col) in self.tiles:
             self.tiles[(row, col)].setStyleSheet(
-                "border: 1px solid black; background-color: green; padding: 5px;")
+                "border: 1px solid black; background-color: green; padding: 5px;"
+            )
             self.log_to_console(f"Tile at ({row},{col}) captured.")
 
     def select_serial_port(self):
@@ -278,18 +304,19 @@ class ScanUI(QWidget):
             return
 
         port, ok = QInputDialog.getItem(
-            self, "Select Serial Port", "Available Ports:", ports, 0, False)
+            self, "Select Serial Port", "Available Ports:", ports, 0, False
+        )
 
         if ok and port:
             self.selected_serial_port = port
-            self.log_to_console(
-                f"Selected Serial Port: {self.selected_serial_port}")
+            self.log_to_console(f"Selected Serial Port: {self.selected_serial_port}")
             self.robot = Robot(port=self.selected_serial_port)
+            self.robot.begin()
 
     def select_camera(self):
         """Opens a dialog to select a camera."""
         cameras = []
-        for i in range(10):  # Check up to 10 camera indexes
+        for i in range(2):
             cap = cv2.VideoCapture(i)
             if cap.isOpened():
                 cameras.append(f"Camera {i}")
@@ -300,7 +327,8 @@ class ScanUI(QWidget):
             return
 
         camera, ok = QInputDialog.getItem(
-            self, "Select Camera", "Available Cameras:", cameras, 0, False)
+            self, "Select Camera", "Available Cameras:", cameras, 0, False
+        )
 
         if ok and camera:
             self.selected_camera = int(camera.split()[-1])

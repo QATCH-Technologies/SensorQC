@@ -8,8 +8,7 @@ class SystemConstants:
     INITIAL_POSITION = Position(
         x=108.2, y=129.6, z=4.7, location_name="Initial_Position"
     )
-    FINAL_POSITION = Position(x=119.4, y=118.8, z=4.7,
-                              location_name="Final_Position")
+    FINAL_POSITION = Position(x=119.4, y=118.8, z=4.7, location_name="Final_Position")
     TOP_LEFT_FOCUS = Position(
         x=110.1, y=127.2, z=4.7, location_name="Top_Left_Focus_Point"
     )
@@ -22,12 +21,9 @@ class SystemConstants:
     BOTTOM_RIGHT_FOCUS = Position(
         x=109.5, y=122.5, z=4.7, location_name="Bottom_Right_Focus_Point"
     )
-    LABEL_FOCUS = Position(x=108.8, y=128.9, z=4.7,
-                           location_name="Label_Focus_Point")
-    INLET_FOCUS = Position(x=112.7, y=126.1, z=4.7,
-                           location_name="Inlet_Focus_Point")
-    OUTLET_FOCUS = Position(x=115.2, y=122.6, z=4.7,
-                            location_name="Outlet_Focus_Point")
+    LABEL_FOCUS = Position(x=108.8, y=128.9, z=4.7, location_name="Label_Focus_Point")
+    INLET_FOCUS = Position(x=112.7, y=126.1, z=4.7, location_name="Inlet_Focus_Point")
+    OUTLET_FOCUS = Position(x=115.2, y=122.6, z=4.7, location_name="Outlet_Focus_Point")
     CHANNEL_1_FOCUS = Position(
         x=113.8, y=121.3, z=4.7, location_name="Channel_1_Focus_Point"
     )
@@ -53,7 +49,7 @@ class SystemConstants:
 
     X_DELTA = 1.4
     Y_DELTA = 1
-    DEBUG = True
+    DEBUG = False
 
     SERVER_PATH = r"C:\Users\QATCH\Documents\SVN Repos\SensorQC"
 
@@ -62,8 +58,7 @@ class SystemConstants:
         """Ensures focus range is valid."""
         min_focus, max_focus = cls.FOCUS_RANGE
         if min_focus >= max_focus:
-            raise ValueError(
-                "FOCUS_RANGE must have a minimum less than the maximum.")
+            raise ValueError("FOCUS_RANGE must have a minimum less than the maximum.")
 
 
 class RobotConstants:
