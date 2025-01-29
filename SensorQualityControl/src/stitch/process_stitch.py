@@ -1,17 +1,24 @@
-from process_common import CheckStd, NUM_ROWS, SCALE_BY
+from process_common import CheckStd, NUM_ROWS, SCALE_BY, CORRECT_DF
 from matplotlib import pyplot as plt
 from logging.handlers import QueueHandler
-import time
+from enum import Enum
 import cv2 as cv
 import logging
 import multiprocessing
 import numpy as np
 import os
 
+
+class BlendType(Enum):
+    NONE = None
+    ALPHA_50_50 = "alpha-50-50"
+    LINEAR_BLEND = "linear-blend"
+
+
 CV_IO_MAX_IMAGE_PIXELS = pow(2, 30)
 os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = str(CV_IO_MAX_IMAGE_PIXELS)
 
-BLEND_OVERLAP = True
+BLEND_OVERLAP = BlendType.LINEAR_BLEND
 COLOR_WHITE = (255, 255, 255)
 COLOR_PINK = (255, 0, 128)
 
@@ -55,7 +62,7 @@ class ProcessStitcher(multiprocessing.Process):
 
         self.image_path = image_path
 
-    def overlay_images(self, bg, fg, x_offset, y_offset):
+    def overlay_images(self, bg, fg, x_offset, y_offset, is_tile=False, is_column=False):
         """Overlays fg on bg with 50% transparency at (x_offset, y_offset)."""
 
         # Ensure images have the same number of channels
@@ -121,7 +128,7 @@ class ProcessStitcher(multiprocessing.Process):
         # self.plot_image(out2)
         # self.plot_image(out)
 
-        if BLEND_OVERLAP == None:
+        if BLEND_OVERLAP == BlendType.NONE:
             return out
 
         try:
@@ -129,8 +136,27 @@ class ProcessStitcher(multiprocessing.Process):
             bg_roi = out1[y1+top1:y2, x1+left1:x2]
             fg_roi = fg[max(0, -y_offset):fg.shape[0]-max(0, y_offset),
                         max(0, -x_offset):fg.shape[1]-max(0, x_offset)]
-            alpha = 0.5  # Transparency level
-            blended_roi = cv.addWeighted(bg_roi, alpha, fg_roi, alpha, 0)
+
+            if BLEND_OVERLAP == BlendType.ALPHA_50_50:
+                alpha = 0.5  # Transparency level
+                blended_roi = cv.addWeighted(bg_roi, alpha, fg_roi, alpha, 0)
+
+            elif BLEND_OVERLAP == BlendType.LINEAR_BLEND:
+                if is_tile:
+                    roi_h = bg_roi.shape[:2][0]
+                    alpha_h = np.linspace(0, 1, roi_h).reshape(-1, 1, 1)
+                    blended_roi = (1 - alpha_h) * bg_roi + alpha_h * fg_roi
+                elif is_column:
+                    roi_w = bg_roi.shape[:2][1]
+                    alpha_w = np.linspace(0, 1, roi_w).reshape(1, -1, 1)
+                    blended_roi = (1 - alpha_w) * bg_roi + alpha_w * fg_roi
+                else:
+                    alpha = 0.5  # Transparency level
+                    blended_roi = cv.addWeighted(
+                        bg_roi, alpha, fg_roi, alpha, 0)
+
+            else:
+                raise ValueError(f"Unknown BlendType: {BLEND_OVERLAP}")
 
             # self.plot_image(blended_roi)
 
@@ -194,6 +220,7 @@ class ProcessStitcher(multiprocessing.Process):
             self.plot_image(out1)
             self.plot_image(out2)
             self.plot_image(out)
+            input("Press Enter to continue...")
 
         return out
 
@@ -294,6 +321,45 @@ class ProcessStitcher(multiprocessing.Process):
         ax.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
         plt.show()
 
+    def df_prepare(self, shape):
+        if not CORRECT_DF:
+            return
+
+        field_path = os.path.join(
+            r"C:\Users\Alexander J. Ross\Documents\SVN Repos\SensorQC")
+        vig1 = cv.imread(os.path.join(field_path, 'flatfield_correction_df.jpg'),
+                         cv.IMREAD_GRAYSCALE)  # Read vignette template as grayscale
+        vig2 = cv.imread(os.path.join(field_path, 'darkfield_correction_df.jpg'),
+                         cv.IMREAD_GRAYSCALE)  # Read vignette template as grayscale
+
+        alpha = 0.25  # Transparency level
+        vig = cv.addWeighted(vig1, alpha, vig2, 1 - alpha, 0)
+
+        # Resize the image
+        vig = cv.resize(vig, shape)
+
+        # Apply median filter for removing artifacts and extreem pixels.
+        vig = cv.medianBlur(vig, 15)
+
+        # Convert vig to float32 in range [0, 1]
+        vig_norm = vig.astype(np.float32) / 255
+        # Blur the vignette template (because there are still artifacts, maybe because SO convered the image to JPEG).
+        vig_norm = cv.GaussianBlur(vig_norm, (51, 51), 30)
+        # vig_max_val = vig_norm.max()  # For avoiding "false colors" we may use the maximum instead of the mean.
+        vig_mean_val = cv.mean(vig_norm)[0]
+        # vig_max_val / vig_norm
+        inv_norm_vig = vig_mean_val / vig_norm  # Compute G = m/F
+
+        # Convert inv_norm_vig to 3 channels before using cv2.multiply. https://stackoverflow.com/a/48338932/4926757
+        self.df_normalizer = cv.cvtColor(inv_norm_vig, cv.COLOR_GRAY2BGR)
+
+    def df_correct(self, image):
+        if not CORRECT_DF:
+            return image
+
+        # Compute: C = R * G
+        return cv.multiply(image, self.df_normalizer, dtype=cv.CV_8U)
+
     def place_tiles_absolutely(self):
         tile_pos_file = os.path.join(self.image_path, "tile_positions.csv")
         if os.path.exists(tile_pos_file):
@@ -304,6 +370,8 @@ class ProcessStitcher(multiprocessing.Process):
                     pos_x = line[line.find('(') + 1:line.find(',')]
                     pos_y = line[line.find(',') + 1:line.find(')')]
                     absolute_positions[tile] = (int(pos_x), int(pos_y))
+            IS_TILE_ZERO_INDEXED = True if str(
+                list(absolute_positions.keys())[0]).find("0") else False
             total_tiles_queued = len(absolute_positions.keys())
             num_tiles_per_row = NUM_ROWS
             grid_rows = num_tiles_per_row
@@ -313,7 +381,10 @@ class ProcessStitcher(multiprocessing.Process):
             for y in range(grid_cols):
                 tiles_this_row = []
                 for x in range(y*grid_rows, (y+1)*grid_rows):
-                    tile = f"tile_{x+1}.jpg"
+                    if IS_TILE_ZERO_INDEXED:
+                        tile = f"tile_{x}.jpg"
+                    else:
+                        tile = f"tile_{x+1}.jpg"
                     tiles_this_row.append(tile)
                 # self.logger.debug(tiles_this_row)
                 last_pos = (0, 0)
@@ -323,6 +394,8 @@ class ProcessStitcher(multiprocessing.Process):
                         overlay_image = cv.resize(
                             cv.imread(this_tile), (0, 0), fx=SCALE_BY, fy=SCALE_BY)
                         tile_shape = tuple(overlay_image.shape[0:2][::-1])
+                        self.df_prepare(tile_shape)
+                        overlay_image = self.df_correct(overlay_image)
                     else:
                         overlay_shape = tuple(overlay_image.shape[0:2][::-1])
                         this_position = absolute_positions[tile]
@@ -330,10 +403,11 @@ class ProcessStitcher(multiprocessing.Process):
                         offset_y = this_position[1] - last_pos[1]
                         overlay_image = self.overlay_images(
                             overlay_image,
-                            cv.resize(cv.imread(this_tile), (0, 0),
-                                      fx=SCALE_BY, fy=SCALE_BY),
+                            self.df_correct(cv.resize(cv.imread(this_tile), (0, 0),
+                                                      fx=SCALE_BY, fy=SCALE_BY)),
                             offset_x,
-                            offset_y
+                            offset_y,
+                            is_tile=True
                         )
                     last_pos = absolute_positions[tile]
                     # self.plot_image(overlay_image, (20, 20))
@@ -355,7 +429,8 @@ class ProcessStitcher(multiprocessing.Process):
                         final_image,
                         overlay_image,
                         offset_x,
-                        offset_y
+                        offset_y,
+                        is_column=True
                     )
                 last_col_pos = absolute_positions[tiles_this_row[0]]
                 # self.plot_image(final_image, (20, 20))
@@ -374,6 +449,152 @@ class ProcessStitcher(multiprocessing.Process):
             # self.logger.info(f"Finished")
             # input()
 
+    def create_stitched_matrix(self):
+        tile_pos_file = os.path.join(self.image_path, "tile_positions.csv")
+        anchor_offset_file = os.path.join(
+            self.image_path, "anchor_offsets.csv")
+        if os.path.exists(tile_pos_file) and os.path.exists(anchor_offset_file):
+            absolute_positions = {}
+            anchor_offsets = {}
+            with open(tile_pos_file, "r") as f:
+                for line in f.readlines():
+                    tile = line[0:line.find(':')]
+                    pos_x = line[line.find('(') + 1:line.find(',')]
+                    pos_y = line[line.find(',') + 1:line.find(')')]
+                    absolute_positions[tile] = (int(pos_x), int(pos_y))
+            IS_TILE_ZERO_INDEXED = True if str(
+                list(absolute_positions.keys())[0]).find("0") else False
+            total_tiles_queued = len(absolute_positions.keys())
+            with open(anchor_offset_file, "r") as f:
+                for line in f.readlines():
+                    tile = line[0:line.find(':')]
+                    is_col = int(line[line.find(':')+1:line.find('->')])
+                    pos_x = line[line.find('(') + 1:line.find(',')]
+                    pos_y = line[line.find(',') + 1:line.find(')')]
+                    anchor = (int(pos_x), int(pos_y))
+                    if not tile in anchor_offsets:
+                        anchor_offsets[tile] = {}
+                    anchor_offsets[tile][is_col] = anchor
+
+            num_tiles_per_row = NUM_ROWS
+            grid_rows = num_tiles_per_row
+            grid_cols = int(total_tiles_queued / num_tiles_per_row)
+            assert grid_cols % 1 == 0, "Number of tiles not divisible by 'rows'. Check and try again."
+            final_image = None
+            for y in range(grid_cols):
+                tiles_this_row = []
+                for x in range(y*grid_rows, (y+1)*grid_rows):
+                    if IS_TILE_ZERO_INDEXED:
+                        tile = f"tile_{x}.jpg"
+                    else:
+                        tile = f"tile_{x+1}.jpg"
+                    tiles_this_row.append(tile)
+                # self.logger.debug(tiles_this_row)
+                last_anchor = (0, 0)
+                last_pos = (0, 0)
+                for i, tile in enumerate(tiles_this_row):
+                    this_tile = os.path.join(self.image_path, tile)
+                    if i == 0:
+                        overlay_image = cv.resize(
+                            cv.imread(this_tile), (0, 0), fx=SCALE_BY, fy=SCALE_BY)
+                        tile_shape = tuple(overlay_image.shape[0:2][::-1])
+                        self.df_prepare(tile_shape)
+                        overlay_image = self.df_correct(overlay_image)
+                        anchor = anchor_offsets[tile][0]
+                        this_position = absolute_positions[tile]
+                    else:
+                        overlay_image = np.concatenate((overlay_image,
+                                                        self.df_correct(
+                                                            cv.resize(cv.imread(this_tile),
+                                                                      (0, 0),
+                                                                      fx=SCALE_BY, fy=SCALE_BY))),
+                                                       axis=0)
+
+                        # this_position = absolute_positions[tile]
+                        # offset_x = last_pos[0]
+                        # offset_y = last_pos[1] + tile_shape[1]
+                        # overlay_image = self.overlay_images(
+                        #     overlay_image,
+                        #     self.df_correct(cv.resize(cv.imread(this_tile), (0, 0),
+                        #                               fx=SCALE_BY, fy=SCALE_BY)),
+                        #     offset_x,
+                        #     offset_y,
+                        #     is_tile=True
+                        # )
+                        # last_pos = (offset_x, offset_y)
+
+                        this_position = absolute_positions[tile]
+                        offset_x = last_pos[0]
+                        offset_y = last_pos[1]
+
+                        # if first row this is a bit of a waste as both points are the same
+                        if tile in anchor_offsets and 0 in anchor_offsets[tile].keys():
+                            overlay_shape = tuple(
+                                overlay_image.shape[0:2][::-1])
+                            anchor = anchor_offsets[tile][0]
+                            anchor_pos = (
+                                last_anchor[0], overlay_shape[1] - 2 * tile_shape[1] + last_anchor[1])
+                            center_x = anchor_pos[0]
+                            center_y = anchor_pos[1]
+                            offset_x = (this_position[0] - last_pos[0])
+                            offset_y = (this_position[1] - last_pos[1])
+                            offset = (offset_x, offset_y)
+                            target_pos_x = center_x - offset[0]
+                            target_pos_y = center_y + tile_shape[1] - offset[1]
+                            target_pos = (target_pos_x, target_pos_y)
+
+                            if last_anchor != (-1, -1):
+                                # Draw the 'X'
+                                cv.line(overlay_image, anchor_pos,
+                                        target_pos, (0, 0, 255), 20)
+                            # cv.line(overlay_image, (center_x - 200, center_y + 200),
+                            #         (center_x + 200, center_y - 200), (0, 0, 255), 20)
+
+                    last_pos = this_position
+                    last_anchor = anchor
+
+                    # self.plot_image(overlay_image, (20, 20))
+                self.logger.info(f"Stitching column {y+1}")
+                if y == 0:
+                    final_image = overlay_image
+                else:
+                    final_image = np.concatenate(
+                        (final_image, overlay_image), axis=1)
+                    # offset_x = y * tile_shape[0]
+                    # offset_y = 0
+                    # final_image = self.overlay_images(
+                    #     final_image,
+                    #     overlay_image,
+                    #     offset_x,
+                    #     offset_y,
+                    #     is_column=True
+                    # )
+                # last_col_pos = absolute_positions[tiles_this_row[0]]
+                # self.plot_image(final_image, (20, 20))
+                # out_path = os.path.join(self.image_path, f"column_{y+1}.jpg")
+                # cv.imwrite(out_path, overlay_image)
+
+            # Rotate image by +/-1 deg at a time until pink edges are gone
+            # final_image = self.rotate_image(final_image)
+
+            # Downscale output image to 5% so it's not as ridiculously huge
+            final_image = cv.resize(final_image, (0, 0), fx=0.05, fy=0.05)
+
+            # Save and show output image
+            out_path = os.path.join(self.image_path, f"stitched_matrix.jpg")
+            self.logger.info(
+                f"Saving stitched matrix: {os.path.basename(out_path)}")
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            cv.imwrite(out_path, final_image)
+            self.plot_image(final_image)
+            # cv.imshow("Stitched Matrix", cv.resize(
+            #     final_image, (0, 0), fx=0.03, fy=0.03))
+            # cv.waitKey(0)
+            # cv.destroyAllWindows()
+        else:
+            raise FileNotFoundError(
+                "Tile position and anchor offet files are required.")
+
     def run(self):  # , image_path = os.getcwd()):
 
         # Instantiate multiprocessing logger
@@ -387,7 +608,7 @@ class ProcessStitcher(multiprocessing.Process):
         offset_y_raw = [-1]
         offset_x_avg = 0
         offset_y_avg = 0
-        offset_x_std = 10
+        offset_x_std = 5
         offset_y_std = 10
 
         # allowable_deviation_factor = 4
@@ -407,8 +628,10 @@ class ProcessStitcher(multiprocessing.Process):
         a_tiles = {}
         tile_relations = {}
         tiles_with_offsets = []
+        tiles_with_warnings = []
 
         tiles, is_good, raw_offsets, used_offsets = [], [], [], []
+        anchor_offsets = {}
 
         num_tiles_per_row = 0
 
@@ -446,7 +669,7 @@ class ProcessStitcher(multiprocessing.Process):
                     # Queue tiles and columns offsets separately
                     # For cols, use dictionary with filename as key
                     # and only add entry if not already in the dict
-                    (a_tile, tile), offset = resp
+                    (a_tile, tile), offset, anchor = resp
                     t1_num = int(a_tile[a_tile.index("_")+1:-4])
                     t2_num = int(tile[tile.index("_")+1:-4])
                     if abs(t2_num - t1_num) <= 1:
@@ -486,6 +709,11 @@ class ProcessStitcher(multiprocessing.Process):
                         tiles_with_offsets.append(a_tile)
                     if not tile in tiles_with_offsets:
                         tiles_with_offsets.append(tile)
+
+                    if not a_tile in anchor_offsets:
+                        anchor_offsets[a_tile] = []
+                    if anchor is not None:
+                        anchor_offsets[a_tile].append(anchor)
 
                 if is_first_row:
                     # Re-evaluate 'is_first_row' only if it is still True
@@ -586,11 +814,13 @@ class ProcessStitcher(multiprocessing.Process):
                             tile_relations[tile] = {}
                         tile_relations[tile][a_tile] = tuple(
                             [-x for x in offset])
+                        self.logger.debug(  # TODO: Make 'info'
+                            f"Using abs offset {offset} for {tile}")
                     else:
                         self.logger.warning(
                             f"Invalid offset {offset} for {tile}")
                         offset = (offset_x_avg, offset_y_avg)
-                        self.logger.debug(
+                        self.logger.debug(  # TODO: Make 'info'
                             f"Using avg offset {offset} for {tile}")
 
                     # DEBUG: Track good, raw, used offsets
@@ -687,7 +917,7 @@ class ProcessStitcher(multiprocessing.Process):
             # Queue tiles and columns offsets separately
             # For cols, use dictionary with filename as key
             # and only add entry if not already in the dict
-            (a_tile, tile), offset = resp
+            (a_tile, tile), offset, anchor = resp
             t1_num = int(a_tile[a_tile.index("_")+1:-4])
             t2_num = int(tile[tile.index("_")+1:-4])
             if abs(t2_num - t1_num) <= 1:
@@ -726,6 +956,10 @@ class ProcessStitcher(multiprocessing.Process):
                 tiles_with_offsets.append(a_tile)
             if not tile in tiles_with_offsets:
                 tiles_with_offsets.append(tile)
+
+            if not a_tile in anchor_offsets:
+                anchor_offsets[a_tile] = []
+            anchor_offsets[a_tile].append(anchor)
 
         # DEBUG: Print statistics on good, raw, used offsets
         self.logger.debug("Offset statistics:")
@@ -827,16 +1061,21 @@ class ProcessStitcher(multiprocessing.Process):
         # self.logger.info(f"Saving image: {os.path.basename(full_out_path)}")
         # cv.imwrite(full_out_path, overlay_image)
 
+        IS_TILE_ZERO_INDEXED = True if str(tiles[0]).find("0") else False
         self.logger.info("Tile offsets, in order:")
         absolute_positions = {}
         fixed_tiles = []
         loop_count = 0
         its_the_final_countdown = False
+        double_reverse = False
         while True:
             loop_count += 1
             tiles_found_this_round = 0
             for i in range(total_tiles_queued):
-                tile = f"tile_{i+1}.jpg"
+                if IS_TILE_ZERO_INDEXED:
+                    tile = f"tile_{i}.jpg"
+                else:
+                    tile = f"tile_{i+1}.jpg"
                 if not tile in tile_relations:
                     if loop_count == 1:
                         self.logger.info(f"{tile} -> None")
@@ -865,22 +1104,29 @@ class ProcessStitcher(multiprocessing.Process):
                                 abs_x = absolute_positions[tile][0] + offset[0]
                                 abs_y = absolute_positions[tile][1] + offset[1]
                                 if abs(now_x - abs_x) > 10 or abs(now_y - abs_y) > 10:
+                                    if a_tile not in tiles_with_warnings:
+                                        tiles_with_warnings.append(a_tile)
                                     self.logger.warning(f"Large position difference for {a_tile}: "
                                                         f"({now_x}, {now_y}) -> ({abs_x}, {abs_y})")
                                 abs_x = int((now_x + abs_x) / 2)
                                 abs_y = int((now_y + abs_y) / 2)
                                 absolute_positions[a_tile] = (abs_x, abs_y)
                         else:
-                            self.logger.debug(
-                                f"Deferring placement of unanchored tile: {tile}")
+                            # self.logger.debug(
+                            #     f"Deferring unanchored tile: {tile}")
+                            break
             self.logger.debug(
                 f"Found {tiles_found_this_round} tiles on loop #{loop_count}")
             if tiles_found_this_round == 0:
                 its_the_final_countdown = True
                 reverse_search = False
                 for i in range(total_tiles_queued):
-                    last_tile = f"tile_{i}.jpg"
-                    tile = f"tile_{i+1}.jpg"
+                    if IS_TILE_ZERO_INDEXED:
+                        last_tile = f"tile_{i-1}.jpg"
+                        tile = f"tile_{i}.jpg"
+                    else:
+                        last_tile = f"tile_{i}.jpg"
+                        tile = f"tile_{i+1}.jpg"
                     num_tiles_per_row = NUM_ROWS
                     grid_rows = num_tiles_per_row
                     image_row = i % grid_rows
@@ -895,6 +1141,23 @@ class ProcessStitcher(multiprocessing.Process):
                                 f"Used an average position offset to place {tile}")
                             break  # only set one tile with average position per no new tiles being placed
                         else:
+                            if double_reverse and image_row == 0:
+                                if IS_TILE_ZERO_INDEXED:
+                                    last_tile = f"tile_{i-grid_rows}.jpg"
+                                else:
+                                    last_tile = f"tile_{i+1-grid_rows}.jpg"
+                                previous_position = absolute_positions[last_tile]
+                                # invert x->y
+                                abs_x = previous_position[0] + \
+                                    restore_y_offset_avg
+                                # invert row->col
+                                abs_y = previous_position[1] - \
+                                    restore_x_offset_avg
+                                absolute_positions[tile] = (abs_x, abs_y)
+                                self.logger.warning(
+                                    f"Used an row -> col position averaging for {tile}")
+                                double_reverse = False
+                                break
                             reverse_search = True
                             self.logger.warning(
                                 f"Reversing search order: {reverse_search}")
@@ -908,6 +1171,11 @@ class ProcessStitcher(multiprocessing.Process):
                             self.logger.warning(
                                 f"Used an average position offset to place {last_tile}")
                             break  # only set one tile with average position per no new tiles being placed
+                        else:
+                            double_reverse = True
+                            self.logger.warning(
+                                f"Reversing search order: {reverse_search}")
+                            break
             if len(absolute_positions) == total_tiles_queued:
                 break
             if loop_count > total_tiles_queued:
@@ -923,8 +1191,12 @@ class ProcessStitcher(multiprocessing.Process):
         self.logger.info("Tiles with no position found:")
         tiles_found = False
         for i in range(total_tiles_queued):
-            last_tile = f"tile_{i}.jpg"
-            tile = f"tile_{i+1}.jpg"
+            if IS_TILE_ZERO_INDEXED:
+                last_tile = f"tile_{i-1}.jpg"
+                tile = f"tile_{i}.jpg"
+            else:
+                last_tile = f"tile_{i}.jpg"
+                tile = f"tile_{i+1}.jpg"
             if not tile in absolute_positions.keys():
                 # TODO: This position estimation will fail if it's the first tile in a row
                 previous_position = absolute_positions[last_tile]
@@ -937,11 +1209,28 @@ class ProcessStitcher(multiprocessing.Process):
             self.logger.info("> NONE")
 
         # Find tiles with no offsets found
-        self.logger.info("Tiles with no offsets found:")
+        self.logger.info("Tiles with no absolute offsets found:")
         tiles_found = False
         for i in range(total_tiles_queued):
-            tile = f"tile_{i+1}.jpg"
+            if IS_TILE_ZERO_INDEXED:
+                tile = f"tile_{i}.jpg"
+            else:
+                tile = f"tile_{i+1}.jpg"
             if not tile in tile_relations:
+                self.logger.error(f"> {tile}")
+                tiles_found = True
+        if not tiles_found:
+            self.logger.info("> NONE")
+
+        # Find tiles with offset warnings
+        self.logger.info("Tiles with large offset errors:")
+        tiles_found = False
+        for i in range(total_tiles_queued):
+            if IS_TILE_ZERO_INDEXED:
+                tile = f"tile_{i}.jpg"
+            else:
+                tile = f"tile_{i+1}.jpg"
+            if tile in tiles_with_warnings:
                 self.logger.error(f"> {tile}")
                 tiles_found = True
         if not tiles_found:
@@ -950,8 +1239,34 @@ class ProcessStitcher(multiprocessing.Process):
         tile_pos_file = os.path.join(self.image_path, "tile_positions.csv")
         with open(tile_pos_file, "w") as f:
             for i in range(total_tiles_queued):
-                tile = f"tile_{i+1}.jpg"
+                if IS_TILE_ZERO_INDEXED:
+                    tile = f"tile_{i}.jpg"
+                else:
+                    tile = f"tile_{i+1}.jpg"
                 f.write(f"{tile}:{absolute_positions[tile]}\n")
+
+        anchor_offset_file = os.path.join(
+            self.image_path, "anchor_offsets.csv")
+        with open(anchor_offset_file, "w") as f:
+            # sort dictionary alphabetically by keys first
+            # anchor_offsets = dict(sorted(anchor_offsets.items()))
+            # write out the sorted anchor offsets to file:
+            for tile, anchors in anchor_offsets.items():
+                try:
+                    tile_num = int(tile[5:-4])
+                    if IS_TILE_ZERO_INDEXED:
+                        image_row = ((tile_num + 1) % NUM_ROWS)
+                    else:
+                        image_row = (tile_num % NUM_ROWS)
+                    # image_col = int(tile_num / NUM_ROWS)
+                    start_idx = 1 if image_row == 0 else 0
+                    for x, y in enumerate(anchors):
+                        for is_col, anchor in y.items():
+                            f.write(f"{tile}:{start_idx+x}->{anchor}\n")
+                except Exception as e:
+                    f.write(f"ERROR: {tile} -> {anchors}\n")
+                    self.logger.error(
+                        "Error writing anchor offsets", exc_info=True)
 
         # grid_rows = num_tiles_per_row
         # grid_cols = total_tiles_queued / num_tiles_per_row

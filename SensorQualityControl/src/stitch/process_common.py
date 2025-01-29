@@ -1,6 +1,7 @@
-NUM_TILES = 483
-NUM_ROWS = 21
-SCALE_BY = 0.5
+NUM_TILES = 306
+NUM_ROWS = 18
+SCALE_BY = 1.0
+CORRECT_DF = True
 
 
 def CheckStd(raw, avg, std):

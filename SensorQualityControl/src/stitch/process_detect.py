@@ -70,6 +70,8 @@ class ProcessDetector(multiprocessing.Process):
 
             for i, tile in enumerate(item):
 
+                tile = str(tile)  # force cast to string
+
                 if not self.queue_rx3.empty():
                     resp = self.queue_rx3.get()
                     self.offset_avg, self.offset_std = resp
@@ -101,13 +103,13 @@ class ProcessDetector(multiprocessing.Process):
                             self.image_path, last_tile)
                         full_this_tile = os.path.join(self.image_path, tile)
                         is_column = False if tile.startswith("tile") else True
-                        offset = self.compare_tiles(
+                        offset, anchor = self.compare_tiles(
                             full_last_tile, full_this_tile, is_column)
-                        resp = [(last_tile, tile), offset]
+                        resp = [(last_tile, tile), offset, anchor]
                 else:
                     # first tile in a row has no offset
                     # TODO: remove this and make stitcher not dependent upon it
-                    resp = [(tile, tile), (0, 0)]
+                    resp = [(tile, tile), (0, 0), None]
                 self.logger.debug(f"Offset: {resp}")
                 self.queue_tx2.put(resp)
                 last_tile = tile
@@ -115,15 +117,15 @@ class ProcessDetector(multiprocessing.Process):
             if last_item_rxd is not None and len(item) > 2:
                 if len(last_item_rxd) == len(item):
                     for i in range(len(item)):
-                        a_tile = last_item_rxd[i]
-                        b_tile = item[i]
+                        a_tile = str(last_item_rxd[i])
+                        b_tile = str(item[i])
                         full_a_tile = os.path.join(self.image_path, a_tile)
                         full_b_tile = os.path.join(self.image_path, b_tile)
                         is_column = False if b_tile.startswith(
                             "tile") else True
-                        offset = self.compare_tiles(
+                        offset, anchor = self.compare_tiles(
                             full_a_tile, full_b_tile, is_column)
-                        resp = [(a_tile, b_tile), offset]
+                        resp = [(a_tile, b_tile), offset, anchor]
                         self.logger.debug(f"Column Offset: {resp}")
                         self.queue_tx2.put(resp)
                 else:
@@ -232,7 +234,7 @@ class ProcessDetector(multiprocessing.Process):
             except Exception as e:
                 self.logger.error(f"Cannot align '{os.path.basename(path1)}' " +
                                   f"and '{os.path.basename(path2)}'", exc_info=1)
-                return (-1, -1)
+                return (-1, -1), {is_column: (-1, -1)}
 
             # Need to draw only good matches, so create a mask
             matchesMask = [[1, 0] for i in range(len(matches))]
@@ -241,6 +243,8 @@ class ProcessDetector(multiprocessing.Process):
             # matchScores = []
             img1_points, img2_points = [], []
             best_match_idx, best_match_ratio = -1, 1
+            best_match_pt = (0, 0)
+            best_match_offset = (0, 0)
             offset_errors = {}
             for i, (m, n) in enumerate(matches):
                 this_ratio = m.distance / n.distance
@@ -277,9 +281,12 @@ class ProcessDetector(multiprocessing.Process):
                 point2 = kp2[matches[best_match_idx][0].trainIdx].pt
                 img1_points.append(point1)  # point1[0] - point2[0])
                 img2_points.append(point2)  # point1[1] - point2[1])
+                best_match_pt = (round(point1[0]), round(point1[1]))
+                best_match_offset = (best_match_pt[0] - round(point2[0]),
+                                     best_match_pt[1] - round(point2[0]))
             else:
                 self.logger.error("No best match found! Please try again.")
-                return (-1, -1)
+                return (-1, -1), {is_column: (-1, -1)}
 
             # Limit number of key points to take the best ones
             # bestMatches = np.argsort(matchScores)[:10]
@@ -305,14 +312,7 @@ class ProcessDetector(multiprocessing.Process):
                 y_offsets.append(img1_points[i][1] - img2_points[i][1])
 
             debug_typical_x = -45
-            if SHOW_DEBUG_PLOTS and abs(x_offsets[0] - debug_typical_x) > 5:
-                draw_params = dict(matchColor=(255, 0, 0),
-                                   singlePointColor=(0, 0, 255),
-                                   matchesMask=matchesMask,
-                                   flags=cv.DrawMatchesFlags_DEFAULT)
-                img3 = cv.drawMatchesKnn(
-                    img1, kp1, img2, kp2, matches, None, **draw_params)
-                plt.imshow(img3,), plt.show()
+            # and abs(x_offsets[0] - debug_typical_x) > 5:
 
             x_offsets = np.sort(x_offsets)
             y_offsets = np.sort(y_offsets)
@@ -322,10 +322,15 @@ class ProcessDetector(multiprocessing.Process):
                 if is_column or True:
                     x_offsets = [x for x in x_offsets]
                     y_offsets = [y for y in y_offsets]
+
+                # best_match_offset[0]
                 middle_x = int(x_offsets[int(len(x_offsets) / 2)])
+
+                # best_match_offset[1]
                 middle_y = int(y_offsets[int(len(y_offsets) / 2)])
 
                 valid_offset = True
+                match_color = (0, 0, 0)  # black if no AVG set yet
                 if self.offset_avg != None and self.offset_std != None and is_column == False:
                     check = CheckStd(
                         (middle_x, middle_y),
@@ -333,14 +338,31 @@ class ProcessDetector(multiprocessing.Process):
                         self.offset_std
                     )
                     valid_offset = all(check)
+
+                    # green if valid; otherwise blue
+                    match_color = (0, 255, 0) if valid_offset else (0, 0, 255)
+
+                if SHOW_DEBUG_PLOTS:
+                    draw_params = dict(matchColor=(255, 0, 0),
+                                       singlePointColor=(0, 0, 255),
+                                       matchesMask=matchesMask,
+                                       flags=cv.DrawMatchesFlags_DEFAULT)
+                    img3 = cv.drawMatchesKnn(
+                        img1, kp1, img2, kp2, matches, None, **draw_params)
+                    cv.line(img3, best_match_pt,
+                            (1280 + round(point2[0]), round(point2[1])),
+                            match_color, 2)
+                    plt.imshow(img3,), plt.show()
+
                 if valid_offset:
-                    return (middle_x, middle_y)
+                    # return best_match_offset, {is_column: best_match_pt}
+                    return (middle_x, middle_y), {is_column: best_match_pt}
                 # else, return lowest offset error, below
             else:
                 self.logger.error(
                     "No KeyPoint offsets found, the array is empty!"
                 )
-                return (-1, -1)
+                return (-1, -1), {is_column: (-1, -1)}
 
             # Return point with lowest offset error compared to AVG
             # ONLY do when the best point found fails the STD check
@@ -349,13 +371,18 @@ class ProcessDetector(multiprocessing.Process):
                 smallest_offset = offset_errors[smallest_error]
                 self.logger.debug(f"Smallest error:  {smallest_error}")
                 self.logger.debug(f"Smallest offset: {smallest_offset}")
-                return (middle_x, middle_y)  # return best, never do 'smallest'
-                return smallest_offset
+
+                # TODO dev, removed this
+                # return (-1, -1), {is_column: (-1, -1)}
+
+                # return best, never do 'smallest'
+                return (middle_x, middle_y), {is_column: best_match_pt}
+                return smallest_offset, {is_column: best_match_pt}
             else:
                 self.logger.error(
                     "No smallest error found, the array is empty!"
                 )
-                return (-1, -1)
+                return (-1, -1), {is_column: (-1, -1)}
 
 # TODO: Multithread offset calculations with stitching code to parallelize tasks and minimize execution time
 # TODO: Use a running average and stddev() to detect outlier offset and use the average when errors observed

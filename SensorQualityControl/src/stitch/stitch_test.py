@@ -96,10 +96,20 @@ class StitcherTest:
 
         if RUN_SCAN_REALTIME:
             self.logger.info(f"Image path is: {image_path}")
-            image_paths = [f"tile_{i+1}.jpg" for i in range(NUM_TILES)]
+            self.logger.info(f"Listening for tiles to be written to file...")
+            while len(os.listdir(image_path)) == 0:
+                pass
+            IS_TILE_ZERO_INDEXED = True if os.listdir(
+                image_path)[0].find("0") else False
+            if IS_TILE_ZERO_INDEXED:
+                image_paths = [f"tile_{i}.jpg" for i in range(NUM_TILES)]
+            else:
+                image_paths = [f"tile_{i+1}.jpg" for i in range(NUM_TILES)]
         else:
             image_paths = [path for path in os.listdir(image_path) if path.endswith(
                 "jpg") and not path.startswith("stitched")]
+            IS_TILE_ZERO_INDEXED = True if str(
+                image_paths[0]).find("0") else False
         image_ids = [int(path[path.rindex("_")+1:-4]) for path in image_paths]
         sort_order = np.argsort(image_ids)
         sorted_paths = np.array(image_paths)[sort_order]
@@ -112,8 +122,12 @@ class StitcherTest:
         assert grid_cols % 1 == 0, "Number of tiles not divisible by 'rows'. Check and try again."
         grid_cols = int(grid_cols)
 
-        image_row = [(id - 1) % grid_rows for id in image_ids]
-        image_col = [int((id - 1) / grid_rows) for id in image_ids]
+        if IS_TILE_ZERO_INDEXED:
+            image_row = [id % grid_rows for id in image_ids]
+            image_col = [int((id) / grid_rows) for id in image_ids]
+        else:
+            image_row = [(id - 1) % grid_rows for id in image_ids]
+            image_col = [int((id - 1) / grid_rows) for id in image_ids]
 
         image_pos = []
         for i in range(len(image_ids)):
