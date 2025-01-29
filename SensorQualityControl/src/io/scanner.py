@@ -46,7 +46,8 @@ class TileScanner:
         return int(-(a // -b))
 
     def interpolate_focus_plane(self, z_points):
-        logger.info(f"Interpolating autofocus plane using {len(z_points)} points.")
+        logger.info(
+            f"Interpolating autofocus plane using {len(z_points)} points.")
         # Extract x, y, z coordinates from the Position objects
         x_coords = np.array([point.x for point in z_points])
         y_coords = np.array([point.y for point in z_points])
@@ -182,17 +183,21 @@ class TileScanner:
             z_points (list of tuples): List of (x, y, z) points for interpolating the focus plane.
         """
         try:
-            x_grid, y_grid, focus_plane = self.interpolate_focus_plane(z_points)
+            x_grid, y_grid, focus_plane = self.interpolate_focus_plane(
+                z_points)
             self.plot_focus_plane(x_grid, y_grid, focus_plane)
             self.init_params()
 
-            x_values = np.linspace(self.x_min, self.x_max, focus_plane.shape[0])
-            y_values = np.linspace(self.y_max, self.y_min, focus_plane.shape[1])
+            x_values = np.linspace(
+                self.x_min, self.x_max, focus_plane.shape[0])
+            y_values = np.linspace(
+                self.y_max, self.y_min, focus_plane.shape[1])
 
             output_dir = os.path.join(
                 r"C:\Users\QATCH\Documents\SVN Repos\SensorQC", runname
             )
-            self.iterate_through_rows(x_values, y_values, focus_plane, output_dir)
+            self.iterate_through_rows(
+                x_values, y_values, focus_plane, output_dir)
 
         except KeyboardInterrupt:
             print("Process interrupted by user.")
