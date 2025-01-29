@@ -13,7 +13,7 @@ import os
 import sys
 
 DO_BLEND = True
-CORRECT_DF = True
+CORRECT_DF = False
 
 
 class WindowStitcher(QWidget):
@@ -243,9 +243,9 @@ class WindowStitcher(QWidget):
 
         # First row, offset coords, and overlap coords
         self.tiles_per_row = QLineEdit("0")
-        self.overlap_x = QLineEdit("250")
-        self.overlap_y = QLineEdit("20")
-        self.rotate_by = QLineEdit("3.6")
+        self.overlap_x = QLineEdit("0")
+        self.overlap_y = QLineEdit("0")
+        self.rotate_by = QLineEdit("0")
 
         b_update = QPushButton("Update")
         b_update.clicked.connect(self.create_image)
@@ -351,7 +351,35 @@ class WindowStitcher(QWidget):
             overlap_y = int(overlap_y * scale_factor)
         image_paths = [path for path in os.listdir(self.image_path) if path.endswith(
             "jpg") and not path.startswith("stitched")]
-        image_ids = [int(path[path.rindex("_")+1:-4]) for path in image_paths]
+        total_tiles = len(image_paths)
+
+        image_ids = []
+        rows = []
+        # convert new tile name format to tile number, in processing order
+        if len(image_paths) and image_paths[0].index("_") != image_paths[0].rindex("_"):
+            for path in image_paths:
+                try:
+                    row = int(path[path.index("_")+1:path.rindex("_")])
+                    col = int(path[path.rindex("_")+1:-4])
+                except Exception as e:
+                    self.logger.error(
+                        "Unable to parse tile position", exc_info=True)
+                    row, col = (-1, -1)
+                image_ids.append((row, col))
+                if not row in rows:
+                    rows.append(row)
+            NUM_ROWS = len(rows)
+            if int(self.tiles_per_row.text()) == 0:
+                # do not "auto detect" again later
+                self.tiles_per_row.setText(str(NUM_ROWS))
+            for i in range(total_tiles):
+                row, col = image_ids[i]
+                id = row + col * NUM_ROWS
+                image_ids[i] = id
+        else:
+            image_ids = [int(path[path.rindex("_")+1:-4])
+                         for path in image_paths]
+
         sort_order = np.argsort(image_ids)
         sorted_paths = np.array(image_paths)[sort_order]
         image_ids = np.array(image_ids)[sort_order]
@@ -579,7 +607,7 @@ if __name__ == '__main__':
     # path = os.path.dirname(path)
     # path = os.path.join(path, "content\\images\\raw_images\\")
     path = os.path.join(
-        r"C:\Users\Alexander J. Ross\Documents\SVN Repos\SensorQC\sensor_D6_DF")
+        r"C:\Users\Alexander J. Ross\Documents\SVN Repos\SensorQC\test_6")
     win.config(path)
     # proc.create_stitched_matrix()
     # proc.place_tiles_absolutely()
