@@ -251,7 +251,6 @@ class ScanUI(QWidget):
                 image = self.row_images[col]
                 if image is not None:
                     cv2.imwrite(image_path, image)
-
             self.log_to_console(f"Writing row {row}")
 
             self.row_images = []
@@ -271,7 +270,7 @@ class ScanUI(QWidget):
 
     def capture_next_tile(self, row, col):
         """Move robot to next tile and capture an image."""
-        time.sleep(0.5)
+        time.sleep(1)
         if not self.runname:
             self.log_to_console(
                 "Error: Run name is not set. Please provide a run name before scanning."
