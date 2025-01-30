@@ -249,9 +249,14 @@ class ScanUI(QWidget):
                 "Error: No camera selected. Please select a camera port before running."
             )
             return
+
         status, id_frame = self.cap.read()
-        self.get_sensor_id(id_frame)
-        default_scan_name = "Sensor_" + self.sensor_id
+        if status:
+            self.get_sensor_id(id_frame)
+            default_scan_name = "Sensor_" + self.sensor_id
+        else:
+            self.log_to_console("Error: Could not perform OCR for sensor ID.")
+            default_scan_name = "Sensor_"
 
         scan_name, ok = QInputDialog.getText(
             self, "Scan Name", "Enter scan name:", QLineEdit.Normal, default_scan_name
@@ -358,14 +363,17 @@ class ScanUI(QWidget):
             self.cap = cv2.VideoCapture(self.selected_camera)
 
     def get_sensor_id(self, frame):
+        self.log_to_console("Performing OCR on frame.")
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         resized = cv2.resize(gray, None, fx=2, fy=2,
                              interpolation=cv2.INTER_LINEAR)
 
         reader = easyocr.Reader(["en"])
         result = reader.readtext(np.array(resized))
-        id = result[1][0]
-        self.sensor_id = id
+        id_string = result[1][0]
+        if id_string[0] == "1":
+            id_string[0] = "I"
+        self.sensor_id = id_string
 
     def log_to_console(self, message):
         """Logs messages to the embedded console output."""
