@@ -1,0 +1,10 @@
+imutils 
+matplotlib 
+numpy 
+opencv_contrib_python 
+Pillow 
+easyocr 
+ultralytics 
+pyserial
+keyboard
+mouse
