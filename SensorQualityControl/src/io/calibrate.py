@@ -1,170 +1,102 @@
 import cv2
-import time
 import numpy as np
+import json
+import logging
 from dino_lite_edge import Camera, Microscope
 from robot import Robot
-from PIL import Image
+from constants import SystemConstants, RobotConstants
+from tqdm import tqdm
+import time
 
-HOMING_TIME = 17
-Z_INITIAL = 9.0
-Z_RANGE = (3.5, 8.5)
-STEP_SIZE = 0.05
-CORNERS = {
-    "top_left": (109.5, 129.5),
-    "top_right": (117.1, 128.3),
-    "bottom_right": (117.1, 121.1),
-    "bottom_left": (109.5, 122.5),
-}
-INITIAL_POSITION = (108.2, 130.9, 6.19, 0.00)
-scope = Microscope()
-cam = Camera(debug=False)
-rob = Robot(debug=False)
-rob.begin()
-# rob.home()
-rob.absolute_mode()
-# scope.led_on(2)
+logger = logging.getLogger(__name__)
 
 
-def generate_flat_field_image():
-    """
-    Generates a synthetic flat field image with uniform intensity.
-    """
-    # scope.led_on(state=2)
-    time.sleep(5)
-    print("Capturing flat field images...")
-    frame = cam.capture_image("df_flat_field_image")
-    # Convert image to float for accurate division and avoid overflow
-    image = frame.astype(np.float32)
+class AutofocusCalibrator:
+    def __init__(self, microscope: Microscope, camera: Camera, robot: Robot):
+        self._scope = microscope
+        self._camera = camera
+        self._robot = robot
 
-    # Find the maximum pixel intensity
-    max_intensity = np.max(image)
+    def init_params(self):
+        self._robot.go_to(
+            SystemConstants.INITIAL_POSITION.x,
+            SystemConstants.INITIAL_POSITION.y,
+            SystemConstants.INITIAL_POSITION.z,
+        )
+        logger.info("Gantry has reached the initial position.")
+        input("Wait for gantry to stop moving. Press any key to proceed.")
 
-    # Avoid division by zero
-    if max_intensity == 0:
-        raise ValueError("Image is completely dark; maximum intensity is zero.")
+    @staticmethod
+    def calculate_laplacian_variance(image):
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        laplacian = cv2.Laplacian(gray_image, cv2.CV_64F)
+        variance = laplacian.var()
+        return variance
 
-    # Scale image so that the brightest point becomes 1.0 (white)
-    calibrated_image = image / max_intensity
+    def autofocus(self, z_range, step_size):
+        z_min, z_max = z_range
+        best_z = z_min
+        best_frame = None
+        max_sharpness = 0
 
-    # Clip values to 1 to ensure they are in the range [0, 1]
-    calibrated_image = np.clip(calibrated_image, 0, 1)
+        for z in np.arange(z_min, z_max, step_size):
+            logger.debug(f"Moving to Z={z} for autofocus check...")
+            self._robot.translate_z(z)
+            time.sleep(0.1)
+            status, frame = self._camera._camera.read()
+            if not status:
+                # logger.warning("Failed to capture image.")
+                continue
 
-    # Optional: Convert back to 8-bit for standard image format, scaling up to 255
-    calibrated_image = (calibrated_image * 255).astype(np.uint8)
+            sharpness = self.calculate_laplacian_variance(frame)
+            logger.debug(f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
 
-    return calibrated_image
+            if sharpness > max_sharpness:
+                max_sharpness = sharpness
+                best_z = z
+                best_frame = frame
 
+        logger.debug(f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
+        return best_z, best_frame
 
-def generate_dark_field_image():
-    """
-    Generates a synthetic dark field image with uniform intensity.
-    """
-    print("Capturing flat field images...")
-    scope.led_off()
-    frame = cam.capture_image("dark_field_image", calibration=True)
-    # Convert image to float for accurate division and avoid overflow
-    image = frame.astype(np.float32)
+    def calibrate_focus(self, focus_positions: list, z_range, step_size):
+        z_heights = {}
+        for position in tqdm(focus_positions, desc="Calibrating focus"):
+            time.sleep(RobotConstants.ROW_DELAY)
+            logger.debug(
+                f"Moving to {position.location_name}: (X={position.x}, Y={position.y})"
+            )
+            self._robot.go_to(position.x, position.y, z_range[0])
+            logger.debug(f"Running autofocus at {position.location_name}...")
+            z_height, best_frame = self.autofocus(z_range, step_size)
+            cal_filename = f"af_{position.location_name}.jpg"
+            cv2.imwrite(cal_filename, best_frame)
+            position.z = z_height
+            z_heights[position.location_name] = z_height
 
-    # Find the maximum pixel intensity
-    max_intensity = np.max(image)
+        return z_heights
 
-    # Avoid division by zero
-    if max_intensity == 0:
-        raise ValueError("Image is completely dark; maximum intensity is zero.")
+    @staticmethod
+    def save_results_to_json(results, file_name="focus_config.json"):
+        with open(file_name, "w") as f:
+            json.dump(results, f, indent=4)
+        logger.info(f"Results saved to {file_name}")
 
-    # Scale image so that the brightest point becomes 1.0 (white)
-    calibrated_image = image / max_intensity
-
-    # Clip values to 1 to ensure they are in the range [0, 1]
-    calibrated_image = np.clip(calibrated_image, 0, 1)
-
-    # Optional: Convert back to 8-bit for standard image format, scaling up to 255
-    calibrated_image = (calibrated_image * 255).astype(np.uint8)
-
-    return calibrated_image
-
-
-def init_params():
-    x, y, z, e = INITIAL_POSITION
-    rob.go_to(x, y, z)
-
-    # # Wait for the print head to reach the initial position
-    # while True:
-    #     response = rob.get_absolute_position()
-    #     if (
-    #         f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}" in response
-    #     ):  # Adjust this condition based on your G-code machine's feedback
-    #         break
-    # rob.absolute_mode()
-    print("Camera has reached the initial position.")
-    input("Enter to continue...")
-
-
-def calculate_laplacian_variance(image):
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
-    # Apply Laplacian operator
-    laplacian = cv2.Laplacian(gray_image, cv2.CV_64F)
-    variance = laplacian.var()  # Compute the variance of the Laplacian
-    return variance
-
-
-def autofocus(z_range, step_size):
-    z_min, z_max = z_range
-    best_z = z_min
-    best_frame = None
-    max_sharpness = 0
-
-    # Loop over Z values in the given range
-    for z in np.arange(z_min, z_max, step_size):
-        print(f"Moving to Z={z} for autofocus check...")
-        rob.translate_z(z)  # Move to Z position via G-code
-
-        # Capture a frame from the camera
-        status, frame = cam.__camera__.read()
-        if not status:
-            print("Failed to capture image.")
-            continue
-
-        # Calculate sharpness using Laplacian variance
-        sharpness = calculate_laplacian_variance(frame)
-        print(f"Laplacian variance (sharpness) at Z={z}: {sharpness}")
-
-        # If the current sharpness is higher than previous, update best Z
-        if sharpness > max_sharpness:
-            max_sharpness = sharpness
-            best_z = z
-            best_frame = frame
-
-    print(f"Best Z-height for focus: {best_z}, Sharpness: {max_sharpness}")
-    return best_z, best_frame
-
-
-def calibrate_focus(corner_positions, z_range, step_size):
-    z_heights = {}
-    for corner, (x, y) in corner_positions.items():
-        print(f"Moving to {corner}: (X={x}, Y={y})")
-        rob.go_to(x, y, Z_INITIAL)
-        print(f"Running autofocus at {corner}...")
-        z_height, b_frame = autofocus(z_range, step_size)
-        cal_filename = f"cal_{corner}.jpg"
-        cv2.imwrite(cal_filename, b_frame)
-        print(f"Optimal Z-height at {corner}: {z_height}")
-        z_heights[corner] = z_height
-    return z_heights
+    def run_calibration(self):
+        try:
+            self.init_params()
+            z_height_results = self.calibrate_focus(
+                SystemConstants.FOCUS_PLANE_POINTS,
+                SystemConstants.FOCUS_RANGE,
+                SystemConstants.FOCUS_STEP,
+            )
+            logger.info("Calibration Results (Z-heights):")
+            logger.info(z_height_results)
+            self.save_results_to_json(z_height_results)
+        except KeyboardInterrupt:
+            print("Process interrupted by user.")
 
 
 if __name__ == "__main__":
-    # Define the range of Z-values to explore
-    # Z step size for autofocus
-    # scope.led_off()
-    scope.led_on(state=1)
-    # ff_image = generate_flat_field_image()
-    # # df_image = generate_dark_field_image()
-    # cv2.imwrite("df_flat_field_image.jpg", ff_image)
-    # # cv2.imwrite("dark_field_image.jpg", df_image)
-    init_params()
-    z_height_results = calibrate_focus(CORNERS, Z_RANGE, STEP_SIZE)
-    print("Calibration Results (Z-heights at corners):")
-    print(z_height_results)
-    scope.end()
-    rob.end()
+    calibrator = AutofocusCalibrator()
+    calibrator.run_calibration()
