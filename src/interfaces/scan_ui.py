@@ -375,6 +375,20 @@ class ScanUI(QWidget):
             id_string[0] = "I"
         self.sensor_id = id_string
 
+    def compute_tile_dimensions(self, z_height):
+        z_values = np.array([6.5, 45.0])
+        width_values = np.array([1.4, 14.7])
+        height_values = np.array([1.0, 7.9])
+
+        width_coeffs = np.polyfit(np.log(z_values), np.log(width_values), 1)
+        height_coeffs = np.polyfit(np.log(z_values), np.log(height_values), 1)
+
+        predicted_width = np.exp(width_coeffs[1]) * z_height**width_coeffs[0]
+        predicted_height = np.exp(
+            height_coeffs[1]) * z_height**height_coeffs[0]
+
+        return predicted_width, predicted_height
+
     def log_to_console(self, message):
         """Logs messages to the embedded console output."""
         self.console_output.append(message)
