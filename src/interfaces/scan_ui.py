@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (
     QProgressBar,
     QMenuBar,
     QAction,
+    QLineEdit,
 )
-from PyQt5.QtCore import pyqtSignal, QObject, QCoreApplication, QThread
+from PyQt5.QtCore import pyqtSignal, QObject, QThread
 import sys
 import serial.tools.list_ports
 import cv2
@@ -21,12 +22,8 @@ from constants import SystemConstants
 import os
 import math
 import time
-
-Z_HEIGHT = 6.5
-TOP_LEFT = (110.0 - SystemConstants.X_DELTA, 126.6 + SystemConstants.Y_DELTA)
-BOTTOM_RIGHT = (120.2 + SystemConstants.X_DELTA, 116.5 - SystemConstants.Y_DELTA)
-NUM_VIDEO_CAPTURE_DEVICES = 2
-TILE_TO_TILE_DELAY = 0.5
+import numpy as np
+import easyocr
 
 
 class CaptureSignal(QObject):
@@ -70,16 +67,18 @@ class ScanThread(QThread):
 
                 if not self.scanning:
                     self.ui.scan_index = current_index
-                    self.log_message.emit(f"Scan paused at index {self.ui.scan_index}.")
+                    self.log_message.emit(
+                        f"Scan paused at index {self.ui.scan_index}.")
                     return
 
                 x, y = self.ui.tile_positions[(row, col)]
                 self.log_message.emit(
                     f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})"
                 )
-                self.ui.robot.go_to(x_position=x, y_position=y, z_position=Z_HEIGHT)
+                self.ui.robot.go_to(
+                    x_position=x, y_position=y, z_position=SystemConstants.Z_HEIGHT)
 
-                time.sleep(TILE_TO_TILE_DELAY)
+                time.sleep(SystemConstants.TILE_TO_TILE_DELAY)
                 if self.ui.cap is not None:
                     ret, frame = self.ui.cap.read()
                     if ret:
@@ -95,8 +94,10 @@ class ScanThread(QThread):
                 self.progress_update.emit(total_tiles)
 
             for col in range(self.ui.num_tiles_x):
-                adj_col = (self.ui.num_tiles_x - 1 - col) if row % 2 != 0 else col
-                image_path = os.path.join(base_dir, f"tile_{row}_{adj_col}.jpg")
+                adj_col = (self.ui.num_tiles_x - 1 -
+                           col) if row % 2 != 0 else col
+                image_path = os.path.join(
+                    base_dir, f"tile_{row}_{adj_col}.jpg")
                 image = self.ui.row_images[col]
                 if image is not None:
                     cv2.imwrite(image_path, image)
@@ -137,6 +138,7 @@ class ScanUI(QWidget):
         self.scan_thread = None
         self.robot = None
         self.cap = None
+        self.sesnor_id = ""
         self.row_images = []
         self.tile_images = {}
         self.initUI()
@@ -229,7 +231,8 @@ class ScanUI(QWidget):
             label.setStyleSheet(
                 "border: 1px solid black; background-color: white; padding: 5px;"
             )
-        self.log_to_console("Scan reset: Grid cleared and ready for a new run.")
+        self.log_to_console(
+            "Scan reset: Grid cleared and ready for a new run.")
 
     def scan_complete(self):
         self.log_to_console("Scan process completed.")
@@ -241,7 +244,18 @@ class ScanUI(QWidget):
             )
             return
 
-        scan_name, ok = QInputDialog.getText(self, "Scan Name", "Enter scan name:")
+        if self.cap is None:
+            self.log_to_console(
+                "Error: No camera selected. Please select a camera port before running."
+            )
+            return
+        status, id_frame = self.cap.read()
+        self.get_sensor_id(id_frame)
+        default_scan_name = "Sensor_" + self.sensor_id
+
+        scan_name, ok = QInputDialog.getText(
+            self, "Scan Name", "Enter scan name:", QLineEdit.Normal, default_scan_name
+        )
         if ok and scan_name.strip():
             self.scan_name = scan_name
             self.log_to_console(f"Scan started with name: {scan_name}")
@@ -314,15 +328,17 @@ class ScanUI(QWidget):
 
         if ok and port:
             self.selected_serial_port = port
-            self.log_to_console(f"Selected Serial Port: {self.selected_serial_port}")
+            self.log_to_console(
+                f"Selected Serial Port: {self.selected_serial_port}")
             self.robot = Robot(port=self.selected_serial_port)
             self.robot.begin()
-            self.robot.go_to(TOP_LEFT[0], TOP_LEFT[1], Z_HEIGHT)
+            self.robot.go_to(
+                SystemConstants.TOP_LEFT[0], SystemConstants.TOP_LEFT[1], SystemConstants.Z_HEIGHT)
 
     def select_camera(self):
         """Opens a dialog to select a camera."""
         cameras = []
-        for i in range(NUM_VIDEO_CAPTURE_DEVICES):
+        for i in range(SystemConstants.NUM_VIDEO_CAPTURE_DEVICES):
             cap = cv2.VideoCapture(i)
             if cap.isOpened():
                 cameras.append(f"Camera {i}")
@@ -341,6 +357,16 @@ class ScanUI(QWidget):
             self.log_to_console(f"Selected Camera: {self.selected_camera}")
             self.cap = cv2.VideoCapture(self.selected_camera)
 
+    def get_sensor_id(self, frame):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        resized = cv2.resize(gray, None, fx=2, fy=2,
+                             interpolation=cv2.INTER_LINEAR)
+
+        reader = easyocr.Reader(["en"])
+        result = reader.readtext(np.array(resized))
+        id = result[1][0]
+        self.sensor_id = id
+
     def log_to_console(self, message):
         """Logs messages to the embedded console output."""
         self.console_output.append(message)
@@ -349,5 +375,5 @@ class ScanUI(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    ex = ScanUI(TOP_LEFT, BOTTOM_RIGHT)
+    ex = ScanUI(SystemConstants.TOP_LEFT, SystemConstants.BOTTOM_RIGHT)
     sys.exit(app.exec_())

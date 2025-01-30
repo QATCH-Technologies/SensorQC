@@ -15,6 +15,9 @@ import sys
 DO_BLEND = True
 CORRECT_DF = False
 
+FIELD_PATH = r"C:\Users\QATCH\Documents\SensorQC\SensorQC"
+SCAN_PATH = r"C:\Users\QATCH\Documents\SensorQC\big_tiles"
+
 
 class WindowStitcher(QWidget):
 
@@ -559,8 +562,7 @@ class WindowStitcher(QWidget):
         if not CORRECT_DF:
             return
 
-        field_path = os.path.join(
-            r"C:\Users\Alexander J. Ross\Documents\SVN Repos\SensorQC")
+        field_path = os.path.join(FIELD_PATH)
         vig1 = cv.imread(os.path.join(field_path, 'flatfield_correction_df.jpg'),
                          cv.IMREAD_GRAYSCALE)  # Read vignette template as grayscale
         vig2 = cv.imread(os.path.join(field_path, 'darkfield_correction_df.jpg'),
@@ -606,8 +608,7 @@ if __name__ == '__main__':
     # path = os.path.dirname(os.getcwd())
     # path = os.path.dirname(path)
     # path = os.path.join(path, "content\\images\\raw_images\\")
-    path = os.path.join(
-        r"C:\Users\Alexander J. Ross\Documents\SVN Repos\SensorQC\test_6")
+    path = os.path.join(SCAN_PATH)
     win.config(path)
     # proc.create_stitched_matrix()
     # proc.place_tiles_absolutely()
