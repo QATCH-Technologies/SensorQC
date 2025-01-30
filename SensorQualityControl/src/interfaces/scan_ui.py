@@ -22,12 +22,11 @@ import os
 import math
 import time
 
-Z_HEIGHT = 6.7
+Z_HEIGHT = 6.5
 TOP_LEFT = (110.0 - SystemConstants.X_DELTA, 126.6 + SystemConstants.Y_DELTA)
-BOTTOM_RIGHT = (120.2 + SystemConstants.X_DELTA,
-                116.5 - SystemConstants.Y_DELTA)
+BOTTOM_RIGHT = (120.2 + SystemConstants.X_DELTA, 116.5 - SystemConstants.Y_DELTA)
 NUM_VIDEO_CAPTURE_DEVICES = 2
-TILE_TO_TILE_DELAY = 1
+TILE_TO_TILE_DELAY = 0.5
 
 
 class CaptureSignal(QObject):
@@ -71,15 +70,14 @@ class ScanThread(QThread):
 
                 if not self.scanning:
                     self.ui.scan_index = current_index
-                    self.log_message.emit(
-                        f"Scan paused at index {self.ui.scan_index}.")
+                    self.log_message.emit(f"Scan paused at index {self.ui.scan_index}.")
                     return
 
                 x, y = self.ui.tile_positions[(row, col)]
                 self.log_message.emit(
-                    f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})")
-                self.ui.robot.go_to(
-                    x_position=x, y_position=y, z_position=Z_HEIGHT)
+                    f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})"
+                )
+                self.ui.robot.go_to(x_position=x, y_position=y, z_position=Z_HEIGHT)
 
                 time.sleep(TILE_TO_TILE_DELAY)
                 if self.ui.cap is not None:
@@ -89,17 +87,16 @@ class ScanThread(QThread):
                         self.ui.row_images.append(frame)
                     else:
                         self.log_message.emit(
-                            f"Error capturing image at ({row}, {col})")
+                            f"Error capturing image at ({row}, {col})"
+                        )
 
                 self.tile_captured.emit(row, col)
                 total_tiles += 1
                 self.progress_update.emit(total_tiles)
 
             for col in range(self.ui.num_tiles_x):
-                adj_col = (self.ui.num_tiles_x - 1 -
-                           col) if row % 2 != 0 else col
-                image_path = os.path.join(
-                    base_dir, f"tile_{row}_{adj_col}.jpg")
+                adj_col = (self.ui.num_tiles_x - 1 - col) if row % 2 != 0 else col
+                image_path = os.path.join(base_dir, f"tile_{row}_{adj_col}.jpg")
                 image = self.ui.row_images[col]
                 if image is not None:
                     cv2.imwrite(image_path, image)
@@ -230,9 +227,9 @@ class ScanUI(QWidget):
         self.robot.out_of_way()
         for label in self.tiles.values():
             label.setStyleSheet(
-                "border: 1px solid black; background-color: white; padding: 5px;")
-        self.log_to_console(
-            "Scan reset: Grid cleared and ready for a new run.")
+                "border: 1px solid black; background-color: white; padding: 5px;"
+            )
+        self.log_to_console("Scan reset: Grid cleared and ready for a new run.")
 
     def scan_complete(self):
         self.log_to_console("Scan process completed.")
@@ -240,11 +237,11 @@ class ScanUI(QWidget):
     def run_action(self):
         if self.robot is None:
             self.log_to_console(
-                "Error: No robot selected. Please select a serial port before running.")
+                "Error: No robot selected. Please select a serial port before running."
+            )
             return
 
-        scan_name, ok = QInputDialog.getText(
-            self, "Scan Name", "Enter scan name:")
+        scan_name, ok = QInputDialog.getText(self, "Scan Name", "Enter scan name:")
         if ok and scan_name.strip():
             self.scan_name = scan_name
             self.log_to_console(f"Scan started with name: {scan_name}")
@@ -279,91 +276,6 @@ class ScanUI(QWidget):
     def scan_complete(self):
         self.log_to_console("Scan process completed.")
 
-    # def scan_grid(self):
-    #     """Iterate through the grid in a snake pattern and capture images."""
-    #     if self.scanning:
-    #         return
-
-    #     self.scanning = True
-
-    #     start_index = getattr(self, "scan_index", 0)
-    #     total_positions = self.num_tiles_x * self.num_tiles_y
-    #     self.progress_bar.setMaximum(total_positions)
-    #     self.progress_bar.setValue(start_index)
-
-    #     base_dir = os.path.join(SystemConstants.SERVER_PATH, self.scan_name)
-    #     os.makedirs(base_dir, exist_ok=True)
-
-    #     total_tiles = start_index
-    #     for row in range(self.num_tiles_y):
-    #         col_range = (
-    #             range(self.num_tiles_x)
-    #             if row % 2 == 0
-    #             else range(self.num_tiles_x - 1, -1, -1)
-    #         )
-
-    #         for col in col_range:
-    #             # Calculate the current position index
-    #             current_index = row * self.num_tiles_x + col
-
-    #             # Skip tiles that were already scanned
-    #             if current_index < start_index:
-    #                 continue
-
-    #             if not self.scanning:  # If stop_action was triggered
-    #                 self.scan_index = current_index  # Save last position
-    #                 self.log_to_console(
-    #                     f"Scan paused at index {self.scan_index}.")
-    #                 return
-
-    #             x, y = self.tile_positions[(row, col)]
-    #             self.log_to_console(
-    #                 f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})"
-    #             )
-    #             self.robot.go_to(x_position=x, y_position=y,
-    #                              z_position=Z_HEIGHT)
-
-    #             self.capture_next_tile(row=row, col=col)
-
-    #             QCoreApplication.processEvents()
-    #             total_tiles += 1
-    #             self.progress_bar.setValue(total_tiles)
-
-    #         # Save row images with correct naming convention
-    #         for col in range(self.num_tiles_x):
-    #             adj_col = (self.num_tiles_x - 1 - col) if row % 2 != 0 else col
-    #             image_path = os.path.join(
-    #                 base_dir, f"tile_{row}_{adj_col}.jpg")
-    #             image = self.row_images[col]
-    #             if image is not None:
-    #                 cv2.imwrite(image_path, image)
-    #         self.log_to_console(f"Writing row {row}")
-
-    #         self.row_images = []
-
-    #     self.scanning = False
-    #     self.log_to_console("Scanning complete.")
-    #     self.log_to_console(f"Capture complete. Images saved in '{base_dir}/'")
-
-    # def capture_next_tile(self, row, col):
-    #     """Move robot to next tile and capture an image."""
-    #     time.sleep(TILE_TO_TILE_DELAY)
-    #     if not self.scan_name:
-    #         self.log_to_console(
-    #             "Error: Run name is not set. Please provide a run name before scanning."
-    #         )
-    #         return
-
-    #     if self.cap is not None:
-    #         ret, frame = self.cap.read()
-    #         if ret:
-    #             self.tile_images[(row, col)] = frame
-    #             self.row_images.append(frame)
-    #         else:
-    #             self.log_to_console(f"Error capturing image at ({row}, {col})")
-
-    #     self.capture_signal.tile_captured.emit(row, col)
-
     def closeEvent(self, event):
         """Ensure resources are released on window close."""
         self.log_to_console("Closing application...")
@@ -385,7 +297,8 @@ class ScanUI(QWidget):
     def update_tile_color(self, row, col):
         if (row, col) in self.tiles:
             self.tiles[(row, col)].setStyleSheet(
-                "border: 1px solid black; background-color: green; padding: 5px;")
+                "border: 1px solid black; background-color: green; padding: 5px;"
+            )
             self.log_to_console(f"Tile at ({row},{col}) captured.")
 
     def select_serial_port(self):
@@ -401,8 +314,7 @@ class ScanUI(QWidget):
 
         if ok and port:
             self.selected_serial_port = port
-            self.log_to_console(
-                f"Selected Serial Port: {self.selected_serial_port}")
+            self.log_to_console(f"Selected Serial Port: {self.selected_serial_port}")
             self.robot = Robot(port=self.selected_serial_port)
             self.robot.begin()
             self.robot.go_to(TOP_LEFT[0], TOP_LEFT[1], Z_HEIGHT)
