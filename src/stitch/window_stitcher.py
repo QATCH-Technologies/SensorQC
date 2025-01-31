@@ -246,6 +246,7 @@ class WindowStitcher(QWidget):
 
         # First row, offset coords, and overlap coords
         self.tiles_per_row = QLineEdit("0")
+        self.row_offset = QLineEdit("0")
         self.overlap_x = QLineEdit("0")
         self.overlap_y = QLineEdit("0")
         self.rotate_by = QLineEdit("0")
@@ -256,13 +257,22 @@ class WindowStitcher(QWidget):
         b_save = QPushButton("Save")
         b_save.clicked.connect(self.save_image)
 
+        self.b_stop = QPushButton("Stop")
+        self.b_stop.clicked.connect(self.stop_action)
+
+        self.progressBar = QProgressBar()
+        self.progressBar.setTextVisible(False)
+        self.progressBar.reset()
+
+        self.progress = QHBoxLayout()
+        self.progress.setContentsMargins(0, 0, 0, 0)
+        self.progress.addWidget(self.progressBar)
+        self.progress.addWidget(self.b_stop)
+
         self.output_size = QLabel("Output Size:")
         self.output_size.setAlignment(Qt.AlignCenter)
+        self.output_size.setFixedHeight(28)
         self.output_size.setVisible(False)  # hide
-
-        self.progress = QProgressBar()
-        self.progress.setTextVisible(False)
-        self.progress.reset()
 
         self.image = QLabel()
         self.image.setContentsMargins(0, 0, 0, 0)
@@ -271,8 +281,11 @@ class WindowStitcher(QWidget):
         h_layout.addStretch()
         h_layout.addWidget(b_load)
         h_layout.addStretch()
-        h_layout.addWidget(QLabel("Tiles Per Row ="))
+        h_layout.addWidget(QLabel("Tiles Per Row:"))
         h_layout.addWidget(self.tiles_per_row)
+        h_layout.addStretch()
+        h_layout.addWidget(QLabel("Row Offset:"))
+        h_layout.addWidget(self.row_offset)
         h_layout.addStretch()
         h_layout.addWidget(QLabel("Overlap: X ="))
         h_layout.addWidget(self.overlap_x)
@@ -288,9 +301,9 @@ class WindowStitcher(QWidget):
         h_layout.addWidget(b_save)
 
         v_layout.addLayout(h_layout)
+        v_layout.addLayout(self.progress)
         v_layout.addStretch()
         v_layout.addWidget(self.output_size)
-        v_layout.addWidget(self.progress)
         v_layout.addWidget(self.image)
         v_layout.addStretch()
 
@@ -320,6 +333,7 @@ class WindowStitcher(QWidget):
 
     def save_image(self):
         if self.cached_image is None:
+            self.output_size.setText("Nothing to save.")
             self.logger.warning(
                 "Nothing to save! Click \"Update\" to create an image first.")
         else:
@@ -329,6 +343,7 @@ class WindowStitcher(QWidget):
             output_path = os.path.join(self.image_path, "stitched_output.jpg")
             cv.imwrite(output_path, self.cached_image)
             self.output_size.setText("Saved!")
+            self.cached_image = None
             self.setToolbarEnabled(True)
 
     def create_image(self, quick=False):
@@ -336,20 +351,31 @@ class WindowStitcher(QWidget):
             self.logger.warning("No path selected. Load a path first!")
             return
 
-        if self.running:
-            self.logger.warning("User stopped the image creation!")
-            self.output_size.setText("Stopped!")
-            self.running = False  # Used as an abort flag
-            return
-
         self.setToolbarEnabled(False, allow_stop=True)
+        row_offset = abs(int(self.row_offset.text()))
+        row_remainder = 1 if int(self.row_offset.text()) < 0 else 0
         overlap_x = int(self.overlap_x.text())
         overlap_y = int(self.overlap_y.text())
         rotation = float(self.rotate_by.text())  # deg
         scale_factor = 1.0
         show_factor = 0.05
+
+        if row_offset > overlap_x:
+            self.logger.warning(
+                "Input error: Row offset must be less than or equal to X overlap.")
+            self.logger.debug(
+                f"Given values: row_offset = {row_offset}, overlap_x = {overlap_x}")
+            self.output_size.setText("Input error, see console log")
+            self.setToolbarEnabled(True)
+            return
+        else:
+            # re-align images so that changing "row_offset" does not require
+            # the user to also change "overlap_x" value to compensate for it
+            overlap_x -= row_offset
+
         if quick:
             scale_factor = show_factor
+            row_offset = int(row_offset * scale_factor)
             overlap_x = int(overlap_x * scale_factor)
             overlap_y = int(overlap_y * scale_factor)
         image_paths = [path for path in os.listdir(self.image_path) if path.endswith(
@@ -402,13 +428,11 @@ class WindowStitcher(QWidget):
                 f"Cannot parse \"tiles per row\" value: \"{self.tiles_per_row.text()}\"")
 
         # show progress bar
-        self.progress.setRange(0, len(sorted_paths))
-        self.output_size.setVisible(False)
-        self.progress.setVisible(True)
+        self.progressBar.setRange(0, len(sorted_paths))
 
         crop_pixels = 0
         for i, tile in enumerate(sorted_paths):
-            self.progress.setValue(i)  # update progress
+            self.progressBar.setValue(i)  # update progress
             QApplication.processEvents()
 
             if not self.running:
@@ -416,8 +440,11 @@ class WindowStitcher(QWidget):
                 break
 
             full_path = os.path.join(self.image_path, tile)
-            this_tile_adjusted = cv.resize(cv.imread(full_path), (0, 0),
-                                           fx=scale_factor, fy=scale_factor)
+            this_tile_adjusted = cv.imread(full_path)
+
+            if scale_factor != 1.0:
+                this_tile_adjusted = cv.resize(this_tile_adjusted, (0, 0),
+                                               fx=scale_factor, fy=scale_factor)
             if CORRECT_DF:
                 if i == 0:
                     tile_shape = tuple(this_tile_adjusted.shape[0:2][::-1])
@@ -437,6 +464,13 @@ class WindowStitcher(QWidget):
                             break
                 this_tile_adjusted = this_tile_adjusted[crop_pixels:-crop_pixels,
                                                         crop_pixels:-crop_pixels]
+
+            if row_offset > 0:
+                if (i % NUM_ROWS) % 2 == row_remainder:
+                    this_tile_adjusted = this_tile_adjusted[:, row_offset:]
+                else:
+                    this_tile_adjusted = this_tile_adjusted[:, :-row_offset]
+
             if not DO_BLEND:
                 if overlap_x != 0:
                     this_tile_adjusted = this_tile_adjusted[:,
@@ -502,7 +536,7 @@ class WindowStitcher(QWidget):
                         final_image = np.concatenate(
                             (final_image, blended_roi, overlay_image), axis=1)
 
-        self.progress.setRange(0, 0)  # indeterminate
+        self.progressBar.setRange(0, 0)  # indeterminate
 
         if self.running:  # only if not stopped
 
@@ -537,26 +571,34 @@ class WindowStitcher(QWidget):
 
         self.setToolbarEnabled(True)
 
-        # hide progress
-        self.progress.setVisible(False)
-        self.output_size.setVisible(True)
+    def stop_action(self):
+        if self.running:
+            self.logger.warning("User stopped the image creation!")
+            self.output_size.setText("Stopped!")
+            self.running = False  # Used as an abort flag
 
     def setToolbarEnabled(self, enabled, allow_stop=False):
         self.running = False if enabled else True
-        b_update = None
-        button_found = False
+        # b_update = None
+        # button_found = False
         for i in range(self.toolbar.count()):
             widget = self.toolbar.itemAt(i).widget()
             if widget is not None:
-                if widget.text() in ["Update", "Stop"]:
-                    b_update = widget
-                    button_found = True
                 widget.setEnabled(enabled)
-        if button_found and allow_stop and not enabled:
-            b_update.setText("Stop")
-            b_update.setEnabled(True)
+                # if widget.text() in ["Update", "Stop"]:
+                # b_update = widget
+                # button_found = True
+        if allow_stop and not enabled:
+            # show progress bar; hide output size
+            self.progressBar.setRange(0, 0)  # indeterminate
+            self.progressBar.setVisible(True)
+            self.b_stop.setVisible(True)
+            self.output_size.setVisible(False)
         else:
-            b_update.setText("Update")
+            # hide progress bar / stop; show output size
+            self.progressBar.setVisible(False)
+            self.b_stop.setVisible(False)
+            self.output_size.setVisible(True)
 
     def df_prepare(self, shape):
         if not CORRECT_DF:
