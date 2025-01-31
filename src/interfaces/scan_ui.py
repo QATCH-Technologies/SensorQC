@@ -25,6 +25,8 @@ import time
 import numpy as np
 import easyocr
 
+USE_OCR = False
+
 
 class CaptureSignal(QObject):
     """This class emits a signal when a tile is captured."""
@@ -67,8 +69,7 @@ class ScanThread(QThread):
 
                 if not self.scanning:
                     self.ui.scan_index = current_index
-                    self.log_message.emit(
-                        f"Scan paused at index {self.ui.scan_index}.")
+                    self.log_message.emit(f"Scan paused at index {self.ui.scan_index}.")
                     return
 
                 x, y = self.ui.tile_positions[(row, col)]
@@ -76,7 +77,8 @@ class ScanThread(QThread):
                     f"Moving to ({x:.2f}, {y:.2f}) and capturing image at ({row}, {col})"
                 )
                 self.ui.robot.go_to(
-                    x_position=x, y_position=y, z_position=SystemConstants.Z_HEIGHT)
+                    x_position=x, y_position=y, z_position=SystemConstants.Z_HEIGHT
+                )
 
                 time.sleep(SystemConstants.TILE_TO_TILE_DELAY)
                 if self.ui.cap is not None:
@@ -94,10 +96,8 @@ class ScanThread(QThread):
                 self.progress_update.emit(total_tiles)
 
             for col in range(self.ui.num_tiles_x):
-                adj_col = (self.ui.num_tiles_x - 1 -
-                           col) if row % 2 != 0 else col
-                image_path = os.path.join(
-                    base_dir, f"tile_{row}_{adj_col}.jpg")
+                adj_col = (self.ui.num_tiles_x - 1 - col) if row % 2 != 0 else col
+                image_path = os.path.join(base_dir, f"tile_{row}_{adj_col}.jpg")
                 image = self.ui.row_images[col]
                 if image is not None:
                     cv2.imwrite(image_path, image)
@@ -120,6 +120,7 @@ class ScanUI(QWidget):
         tile_size=(SystemConstants.X_DELTA, SystemConstants.Y_DELTA),
     ):
         super().__init__()
+
         self.top_left = top_left
         self.bottom_right = bottom_right
         self.tile_width, self.tile_height = tile_size
@@ -197,6 +198,8 @@ class ScanUI(QWidget):
 
         self.generate_grid()
         self.show()
+        if SystemConstants.DEBUG:
+            self.log_to_console("WARN: Operating in debug mode.")
 
     def generate_grid(self):
         """Generate and display the grid with physical positions."""
@@ -226,13 +229,13 @@ class ScanUI(QWidget):
         self.scan_index = 0
         self.progress_bar.setValue(0)
         self.scan_name = None
-        self.robot.out_of_way()
+        start_position = self.tile_positions.get((0, 0))
+        self.robot.go_to(start_position[0], start_position[1], SystemConstants.Z_HEIGHT)
         for label in self.tiles.values():
             label.setStyleSheet(
                 "border: 1px solid black; background-color: white; padding: 5px;"
             )
-        self.log_to_console(
-            "Scan reset: Grid cleared and ready for a new run.")
+        self.log_to_console("Scan reset: Grid cleared and ready for a new run.")
 
     def scan_complete(self):
         self.log_to_console("Scan process completed.")
@@ -249,14 +252,22 @@ class ScanUI(QWidget):
                 "Error: No camera selected. Please select a camera port before running."
             )
             return
+        default_scan_name = "320_D250117_W1_Sensor_"
+        if USE_OCR:
+            self.robot.go_to(
+                x_position=SystemConstants.LABEL_POS[0],
+                y_position=SystemConstants.LABEL_POS[1],
+                z_position=SystemConstants.Z_HEIGHT,
+            )
+            time.sleep(0.5)
+            status, id_frame = self.cap.read()
+            if status:
+                cv2.imwrite("ID.jpg", id_frame)
+                self.get_sensor_id(id_frame)
 
-        status, id_frame = self.cap.read()
-        if status:
-            self.get_sensor_id(id_frame)
-            default_scan_name = "Sensor_" + self.sensor_id
-        else:
-            self.log_to_console("Error: Could not perform OCR for sensor ID.")
-            default_scan_name = "Sensor_"
+                default_scan_name = "Sensor_" + self.sensor_id
+            else:
+                self.log_to_console("Error: Could not perform OCR for sensor ID.")
 
         scan_name, ok = QInputDialog.getText(
             self, "Scan Name", "Enter scan name:", QLineEdit.Normal, default_scan_name
@@ -333,12 +344,14 @@ class ScanUI(QWidget):
 
         if ok and port:
             self.selected_serial_port = port
-            self.log_to_console(
-                f"Selected Serial Port: {self.selected_serial_port}")
+            self.log_to_console(f"Selected Serial Port: {self.selected_serial_port}")
             self.robot = Robot(port=self.selected_serial_port)
             self.robot.begin()
             self.robot.go_to(
-                SystemConstants.TOP_LEFT[0], SystemConstants.TOP_LEFT[1], SystemConstants.Z_HEIGHT)
+                SystemConstants.TOP_LEFT[0],
+                SystemConstants.TOP_LEFT[1],
+                SystemConstants.Z_HEIGHT,
+            )
 
     def select_camera(self):
         """Opens a dialog to select a camera."""
@@ -364,12 +377,12 @@ class ScanUI(QWidget):
 
     def get_sensor_id(self, frame):
         self.log_to_console("Performing OCR on frame.")
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        resized = cv2.resize(gray, None, fx=2, fy=2,
-                             interpolation=cv2.INTER_LINEAR)
-
+        # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # resized = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+        cv2.imwrite("mod_ID.jpg", frame)
         reader = easyocr.Reader(["en"])
-        result = reader.readtext(np.array(resized))
+        result = reader.readtext(np.array(frame))
+        print(result)
         id_string = result[1][0]
         if id_string[0] == "1":
             id_string[0] = "I"
@@ -383,9 +396,8 @@ class ScanUI(QWidget):
         width_coeffs = np.polyfit(np.log(z_values), np.log(width_values), 1)
         height_coeffs = np.polyfit(np.log(z_values), np.log(height_values), 1)
 
-        predicted_width = np.exp(width_coeffs[1]) * z_height**width_coeffs[0]
-        predicted_height = np.exp(
-            height_coeffs[1]) * z_height**height_coeffs[0]
+        predicted_width = np.exp(width_coeffs[1]) * z_height ** width_coeffs[0]
+        predicted_height = np.exp(height_coeffs[1]) * z_height ** height_coeffs[0]
 
         return predicted_width, predicted_height
 

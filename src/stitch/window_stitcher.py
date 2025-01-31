@@ -1,8 +1,16 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QApplication, QWidget, \
-    QLabel, QProgressBar, QLineEdit, QPushButton, QFileDialog, \
-    QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QLabel,
+    QProgressBar,
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+)
 from matplotlib import pyplot as plt
 from logging.handlers import QueueHandler
 
@@ -16,11 +24,10 @@ DO_BLEND = True
 CORRECT_DF = False
 
 FIELD_PATH = r"C:\Users\QATCH\Documents\SensorQC\SensorQC"
-SCAN_PATH = r"C:\Users\QATCH\Documents\SensorQC\big_tiles"
+SCAN_PATH = r"C:\Users\QATCH\Documents\SVN Repos\SensorQC\Sensor_I11"
 
 
 class WindowStitcher(QWidget):
-
     def __init__(self, log_level=logging.DEBUG):
         super().__init__()
 
@@ -39,27 +46,27 @@ class WindowStitcher(QWidget):
         self.logger.debug("Stitcher window initialized")
 
     def __log__(self):
-
         self.logger = logging.getLogger(__class__.__name__)
         if self.queue_log is not None:
             self.logger.addHandler(QueueHandler(self.queue_log))
         else:
             h = logging.StreamHandler()
             f = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
             h.setFormatter(f)
             self.logger.addHandler(h)
         self.logger.setLevel(self.log_level)
 
     def setLogLevel(self, log_level):
-        """ Set logging level """
+        """Set logging level"""
 
         self.log_level = log_level
         self.logger.setLevel(self.log_level)
         self.logger.debug(f"Log level changed to {log_level}")
 
     def config(self, image_path):
-        """ Global configuration parameters common to all children processes """
+        """Global configuration parameters common to all children processes"""
 
         self.image_path = image_path
 
@@ -72,7 +79,9 @@ class WindowStitcher(QWidget):
 
             self.create_image(True)
 
-    def overlay_images(self, bg, fg, x_offset, y_offset, is_tile=False, is_column=False):
+    def overlay_images(
+        self, bg, fg, x_offset, y_offset, is_tile=False, is_column=False
+    ):
         """Overlays fg on bg with 50% transparency at (x_offset, y_offset)."""
 
         # Ensure images have the same number of channels
@@ -90,16 +99,19 @@ class WindowStitcher(QWidget):
         left1, right1 = max(0, -x_offset), max(0, x_offset)
 
         # print(top1, bottom1, left1, right1)
-        out1 = cv.copyMakeBorder(bg,
-                                 top1, bottom1, left1, right1,
-                                 cv.BORDER_CONSTANT,
-                                 value=self.trans_color)
+        out1 = cv.copyMakeBorder(
+            bg, top1, bottom1, left1, right1, cv.BORDER_CONSTANT, value=self.trans_color
+        )
 
         # Create a region of interest (ROI) for the overlap region
-        y1, y2 = max(0, y_offset) + \
-            (bg.shape[0] - fg.shape[0]), out1.shape[0] - abs(y_offset)
-        x1, x2 = max(0, x_offset) + \
-            (bg.shape[1] - fg.shape[1]), out1.shape[1] - abs(x_offset)
+        y1, y2 = (
+            max(0, y_offset) + (bg.shape[0] - fg.shape[0]),
+            out1.shape[0] - abs(y_offset),
+        )
+        x1, x2 = (
+            max(0, x_offset) + (bg.shape[1] - fg.shape[1]),
+            out1.shape[1] - abs(x_offset),
+        )
 
         if y_offset < 0:
             # offset y1/y2 to zero y1
@@ -113,13 +125,17 @@ class WindowStitcher(QWidget):
         # Overlap background and foreground images,
         # with no alpha in overlap region (yet)
         out = out1.copy()
-        out[y1:y1 + fg.shape[0], x1:x1 + fg.shape[1]] = fg
+        out[y1 : y1 + fg.shape[0], x1 : x1 + fg.shape[1]] = fg
 
         # Extend image with pink background
-        top2, bottom2 = out.shape[0] - \
-            (fg.shape[0] - y_offset) - bottom1, max(0, -y_offset)
-        left2, right2 = out.shape[1] - \
-            (fg.shape[1] - x_offset) - right1, max(0, -x_offset)
+        top2, bottom2 = (
+            out.shape[0] - (fg.shape[0] - y_offset) - bottom1,
+            max(0, -y_offset),
+        )
+        left2, right2 = (
+            out.shape[1] - (fg.shape[1] - x_offset) - right1,
+            max(0, -x_offset),
+        )
 
         if y_offset < 0:
             bottom2 += top2
@@ -129,10 +145,9 @@ class WindowStitcher(QWidget):
             left2 = 0
 
         # print(top2, bottom2, left2, right2)
-        out2 = cv.copyMakeBorder(fg,
-                                 top2, bottom2, left2, right2,
-                                 cv.BORDER_CONSTANT,
-                                 value=self.trans_color)
+        out2 = cv.copyMakeBorder(
+            fg, top2, bottom2, left2, right2, cv.BORDER_CONSTANT, value=self.trans_color
+        )
 
         if self.place_tiles_absolutely_called:
             self.plot_image(out1)
@@ -144,9 +159,11 @@ class WindowStitcher(QWidget):
 
         try:
             # Blend the foreground image onto the background image
-            bg_roi = out1[y1+top1:y2, x1+left1:x2]
-            fg_roi = fg[max(0, -y_offset):fg.shape[0]-max(0, y_offset),
-                        max(0, -x_offset):fg.shape[1]-max(0, x_offset)]
+            bg_roi = out1[y1 + top1 : y2, x1 + left1 : x2]
+            fg_roi = fg[
+                max(0, -y_offset) : fg.shape[0] - max(0, y_offset),
+                max(0, -x_offset) : fg.shape[1] - max(0, x_offset),
+            ]
 
             # if BLEND_OVERLAP == BlendType.ALPHA_50_50:
             #     alpha = 0.5  # Transparency level
@@ -163,8 +180,7 @@ class WindowStitcher(QWidget):
                     blended_roi = (1 - alpha_w) * bg_roi + alpha_w * fg_roi
                 else:
                     alpha = 0.5  # Transparency level
-                    blended_roi = cv.addWeighted(
-                        bg_roi, alpha, fg_roi, alpha, 0)
+                    blended_roi = cv.addWeighted(bg_roi, alpha, fg_roi, alpha, 0)
 
             else:
                 raise ValueError(f"Unknown BlendType: {BLEND_OVERLAP}")
@@ -222,7 +238,7 @@ class WindowStitcher(QWidget):
 
             # self.plot_image(blended_roi)
 
-            out[y1+top1:y2, x1+left1:x2] = blended_roi
+            out[y1 + top1 : y2, x1 + left1 : x2] = blended_roi
 
         except Exception as e:
             self.logger.error("Error while overlaping tiles:")
@@ -236,7 +252,6 @@ class WindowStitcher(QWidget):
         return out
 
     def create_window(self):
-
         # Master grid layout for main widget
         v_layout = QVBoxLayout()
         h_layout = QHBoxLayout()
@@ -315,8 +330,7 @@ class WindowStitcher(QWidget):
         self.toolbar = h_layout
 
     def load_tiles(self):
-        folder = str(QFileDialog.getExistingDirectory(
-            self, "Select Tiles Path"))
+        folder = str(QFileDialog.getExistingDirectory(self, "Select Tiles Path"))
         if len(folder) == 0:
             self.logger.debug("User hit cancel.")
         else:
@@ -325,8 +339,9 @@ class WindowStitcher(QWidget):
     def set_image(self, image):
         height, width, channel = image.shape
         bytes_per_line = 3 * width
-        q_image = QImage(image.data, width, height,
-                         bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+        q_image = QImage(
+            image.data, width, height, bytes_per_line, QImage.Format_RGB888
+        ).rgbSwapped()
         pixmap = QPixmap.fromImage(q_image)
         self.image.setPixmap(pixmap)
         self.image.resize(pixmap.width(), pixmap.height())
@@ -335,7 +350,8 @@ class WindowStitcher(QWidget):
         if self.cached_image is None:
             self.output_size.setText("Nothing to save.")
             self.logger.warning(
-                "Nothing to save! Click \"Update\" to create an image first.")
+                'Nothing to save! Click "Update" to create an image first.'
+            )
         else:
             self.setToolbarEnabled(False)
             self.output_size.setText("Saving image to file...")
@@ -362,9 +378,11 @@ class WindowStitcher(QWidget):
 
         if row_offset > overlap_x:
             self.logger.warning(
-                "Input error: Row offset must be less than or equal to X overlap.")
+                "Input error: Row offset must be less than or equal to X overlap."
+            )
             self.logger.debug(
-                f"Given values: row_offset = {row_offset}, overlap_x = {overlap_x}")
+                f"Given values: row_offset = {row_offset}, overlap_x = {overlap_x}"
+            )
             self.output_size.setText("Input error, see console log")
             self.setToolbarEnabled(True)
             return
@@ -378,8 +396,11 @@ class WindowStitcher(QWidget):
             row_offset = int(row_offset * scale_factor)
             overlap_x = int(overlap_x * scale_factor)
             overlap_y = int(overlap_y * scale_factor)
-        image_paths = [path for path in os.listdir(self.image_path) if path.endswith(
-            "jpg") and not path.startswith("stitched")]
+        image_paths = [
+            path
+            for path in os.listdir(self.image_path)
+            if path.endswith("jpg") and not path.startswith("stitched")
+        ]
         total_tiles = len(image_paths)
 
         image_ids = []
@@ -388,11 +409,10 @@ class WindowStitcher(QWidget):
         if len(image_paths) and image_paths[0].index("_") != image_paths[0].rindex("_"):
             for path in image_paths:
                 try:
-                    row = int(path[path.index("_")+1:path.rindex("_")])
-                    col = int(path[path.rindex("_")+1:-4])
+                    row = int(path[path.index("_") + 1 : path.rindex("_")])
+                    col = int(path[path.rindex("_") + 1 : -4])
                 except Exception as e:
-                    self.logger.error(
-                        "Unable to parse tile position", exc_info=True)
+                    self.logger.error("Unable to parse tile position", exc_info=True)
                     row, col = (-1, -1)
                 image_ids.append((row, col))
                 if not row in rows:
@@ -406,14 +426,12 @@ class WindowStitcher(QWidget):
                 id = row + col * NUM_ROWS
                 image_ids[i] = id
         else:
-            image_ids = [int(path[path.rindex("_")+1:-4])
-                         for path in image_paths]
+            image_ids = [int(path[path.rindex("_") + 1 : -4]) for path in image_paths]
 
         sort_order = np.argsort(image_ids)
         sorted_paths = np.array(image_paths)[sort_order]
         image_ids = np.array(image_ids)[sort_order]
-        IS_TILE_ZERO_INDEXED = True if str(
-            sorted_paths[0]).find("0") else False
+        IS_TILE_ZERO_INDEXED = True if str(sorted_paths[0]).find("0") else False
         final_image = None
         try:
             if int(self.tiles_per_row.text()) == 0:
@@ -425,7 +443,8 @@ class WindowStitcher(QWidget):
                 NUM_ROWS = int(self.tiles_per_row.text())
         except:
             self.logger.error(
-                f"Cannot parse \"tiles per row\" value: \"{self.tiles_per_row.text()}\"")
+                f'Cannot parse "tiles per row" value: "{self.tiles_per_row.text()}"'
+            )
 
         # show progress bar
         self.progressBar.setRange(0, len(sorted_paths))
@@ -443,8 +462,9 @@ class WindowStitcher(QWidget):
             this_tile_adjusted = cv.imread(full_path)
 
             if scale_factor != 1.0:
-                this_tile_adjusted = cv.resize(this_tile_adjusted, (0, 0),
-                                               fx=scale_factor, fy=scale_factor)
+                this_tile_adjusted = cv.resize(
+                    this_tile_adjusted, (0, 0), fx=scale_factor, fy=scale_factor
+                )
             if CORRECT_DF:
                 if i == 0:
                     tile_shape = tuple(this_tile_adjusted.shape[0:2][::-1])
@@ -456,14 +476,20 @@ class WindowStitcher(QWidget):
                 (cX, cY) = (w // 2, h // 2)
                 M = cv.getRotationMatrix2D((cX, cY), rotation, 1.0)
                 this_tile_adjusted = cv.warpAffine(
-                    this_tile_adjusted, M, (w, h), borderMode=cv.BORDER_CONSTANT, borderValue=self.trans_color)
+                    this_tile_adjusted,
+                    M,
+                    (w, h),
+                    borderMode=cv.BORDER_CONSTANT,
+                    borderValue=self.trans_color,
+                )
                 if i == 0:
                     for px in range(min(w, h)):
                         if tuple(this_tile_adjusted[:, 0][px]) != self.trans_color:
                             crop_pixels = px
                             break
-                this_tile_adjusted = this_tile_adjusted[crop_pixels:-crop_pixels,
-                                                        crop_pixels:-crop_pixels]
+                this_tile_adjusted = this_tile_adjusted[
+                    crop_pixels:-crop_pixels, crop_pixels:-crop_pixels
+                ]
 
             if row_offset > 0:
                 if (i % NUM_ROWS) % 2 == row_remainder:
@@ -473,8 +499,7 @@ class WindowStitcher(QWidget):
 
             if not DO_BLEND:
                 if overlap_x != 0:
-                    this_tile_adjusted = this_tile_adjusted[:,
-                                                            overlap_x:-overlap_x]
+                    this_tile_adjusted = this_tile_adjusted[:, overlap_x:-overlap_x]
                 if overlap_y != 0:
                     this_tile_adjusted = this_tile_adjusted[overlap_y:-overlap_y, :]
             if i % NUM_ROWS == 0:
@@ -482,7 +507,8 @@ class WindowStitcher(QWidget):
             else:
                 if overlap_y == 0 or not DO_BLEND:
                     overlay_image = np.concatenate(
-                        (overlay_image, this_tile_adjusted), axis=0)
+                        (overlay_image, this_tile_adjusted), axis=0
+                    )
                 else:
                     # blend overlap region of tiles
                     bg_roi = overlay_image[-overlap_y:, :]
@@ -503,9 +529,10 @@ class WindowStitcher(QWidget):
                     this_tile_adjusted = this_tile_adjusted[overlap_y:, :]
 
                     overlay_image = np.concatenate(
-                        (overlay_image, blended_roi, this_tile_adjusted), axis=0)
+                        (overlay_image, blended_roi, this_tile_adjusted), axis=0
+                    )
 
-            if (i+1) % NUM_ROWS == 0:
+            if (i + 1) % NUM_ROWS == 0:
                 # cv.imshow(f"Row {i // NUM_ROWS}", overlay_image)
                 # cv.waitKey()
                 if final_image is None:
@@ -513,7 +540,8 @@ class WindowStitcher(QWidget):
                 else:
                     if overlap_x == 0 or not DO_BLEND:
                         final_image = np.concatenate(
-                            (final_image, overlay_image), axis=1)
+                            (final_image, overlay_image), axis=1
+                        )
                     else:
                         # blend overlap region of columns
                         bg_roi = final_image[:, -overlap_x:]
@@ -534,16 +562,17 @@ class WindowStitcher(QWidget):
                         overlay_image = overlay_image[:, overlap_x:]
 
                         final_image = np.concatenate(
-                            (final_image, blended_roi, overlay_image), axis=1)
+                            (final_image, blended_roi, overlay_image), axis=1
+                        )
 
         self.progressBar.setRange(0, 0)  # indeterminate
 
         if self.running:  # only if not stopped
-
             (h, w) = final_image.shape[:2]
             show_factor = 850 / (max(w, h))
-            scaled_image = cv.resize(final_image, (0, 0),
-                                     fx=show_factor, fy=show_factor)
+            scaled_image = cv.resize(
+                final_image, (0, 0), fx=show_factor, fy=show_factor
+            )
 
             if quick:
                 self.output_size.setText("Quick Load!")
@@ -605,10 +634,12 @@ class WindowStitcher(QWidget):
             return
 
         field_path = os.path.join(FIELD_PATH)
-        vig1 = cv.imread(os.path.join(field_path, 'flatfield_correction_df.jpg'),
-                         cv.IMREAD_GRAYSCALE)  # Read vignette template as grayscale
-        vig2 = cv.imread(os.path.join(field_path, 'darkfield_correction_df.jpg'),
-                         cv.IMREAD_GRAYSCALE)  # Read vignette template as grayscale
+        vig1 = cv.imread(
+            os.path.join(field_path, "flatfield_correction_df.jpg"), cv.IMREAD_GRAYSCALE
+        )  # Read vignette template as grayscale
+        vig2 = cv.imread(
+            os.path.join(field_path, "darkfield_correction_df.jpg"), cv.IMREAD_GRAYSCALE
+        )  # Read vignette template as grayscale
 
         alpha = 0.25  # Transparency level
         vig = cv.addWeighted(vig1, alpha, vig2, 1 - alpha, 0)
@@ -644,7 +675,7 @@ class WindowStitcher(QWidget):
         return cv.multiply(image, self.df_normalizer, dtype=cv.CV_8U)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = WindowStitcher()
     # path = os.path.dirname(os.getcwd())

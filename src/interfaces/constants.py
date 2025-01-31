@@ -3,26 +3,24 @@ import numpy as np
 
 
 class SystemConstants:
-
-    X_DELTA = 126.10-119.20
+    X_DELTA = (126.10 - 119.20) / 2
     Y_DELTA = 136.00 - 132.20
     TILE_DIMENSIONS = (X_DELTA, Y_DELTA)
-    DEBUG = True
+    DEBUG = False
 
     SERVER_PATH = r"C:\Users\QATCH\Documents\SVN Repos\SensorQC"
 
     Z_HEIGHT = 30.00
 
-    TOP_LEFT = (122.7 - X_DELTA,
-                134.0 + Y_DELTA)
-    BOTTOM_RIGHT = (134.0 + X_DELTA,
-                    123.0 - Y_DELTA)
+    TOP_LEFT = (122.7, 134.0)
+    BOTTOM_RIGHT = (134.0 + X_DELTA, 123.0 - Y_DELTA)
     NUM_VIDEO_CAPTURE_DEVICES = 2
-    TILE_TO_TILE_DELAY = 0.5
+    TILE_TO_TILE_DELAY = 1
     SENSOR_DIMESNIONS = (10.85, 11.40)
     z_values = np.array([6.5, 30.0])
     width_values = np.array([1.4, 6.9])
     height_values = np.array([1.0, 3.8])
+    LABEL_POS = (122.8, 133.5)
 
 
 @classmethod
@@ -30,8 +28,7 @@ def validate_focus_range(cls):
     """Ensures focus range is valid."""
     min_focus, max_focus = cls.FOCUS_RANGE
     if min_focus >= max_focus:
-        raise ValueError(
-            "FOCUS_RANGE must have a minimum less than the maximum.")
+        raise ValueError("FOCUS_RANGE must have a minimum less than the maximum.")
 
 
 class RobotConstants:
