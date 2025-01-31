@@ -1,70 +1,28 @@
 from enum import Enum
-from positions import Position
+import numpy as np
 
 
 class SystemConstants:
-    """System-wide constants related to positions, focus, and ranges."""
 
-    INITIAL_POSITION = Position(
-        x=108.2, y=129.6, z=4.7, location_name="Initial_Position"
-    )
-    FINAL_POSITION = Position(x=119.4, y=118.8, z=4.7,
-                              location_name="Final_Position")
-    TOP_LEFT_FOCUS = Position(
-        x=110.1, y=127.2, z=4.7, location_name="Top_Left_Focus_Point"
-    )
-    TOP_RIGHT_FOCUS = Position(
-        x=117.1, y=128.3, z=4.7, location_name="Top_Right_Focus_Point"
-    )
-    BOTTOM_LEFT_FOCUS = Position(
-        x=117.1, y=121.1, z=4.7, location_name="Bottom_Left_Focus_Point"
-    )
-    BOTTOM_RIGHT_FOCUS = Position(
-        x=109.5, y=122.5, z=4.7, location_name="Bottom_Right_Focus_Point"
-    )
-    LABEL_FOCUS = Position(x=108.8, y=128.9, z=4.7,
-                           location_name="Label_Focus_Point")
-    INLET_FOCUS = Position(x=112.7, y=126.1, z=4.7,
-                           location_name="Inlet_Focus_Point")
-    OUTLET_FOCUS = Position(x=115.2, y=122.6, z=4.7,
-                            location_name="Outlet_Focus_Point")
-    CHANNEL_1_FOCUS = Position(
-        x=113.8, y=121.3, z=4.7, location_name="Channel_1_Focus_Point"
-    )
-    CHANNEL_2_FOCUS = Position(
-        x=114.0, y=127.3, z=4.7, location_name="Channel_2_Focus_Point"
-    )
-    FOCUS_PLANE_POINTS = [
-        LABEL_FOCUS,
-        TOP_LEFT_FOCUS,
-        TOP_RIGHT_FOCUS,
-        BOTTOM_LEFT_FOCUS,
-        BOTTOM_RIGHT_FOCUS,
-        INLET_FOCUS,
-        OUTLET_FOCUS,
-        CHANNEL_1_FOCUS,
-        CHANNEL_2_FOCUS,
-    ]
-
-    FOCUS_RANGE = (4.0, 5.0)  # Min and max focus range
-    FOCUS_STEP = 0.05
-
-    TILE_DIMENSIONS = (1.4, 1)
-
-    X_DELTA = 1.4
-    Y_DELTA = 1
+    X_DELTA = 126.10-119.20
+    Y_DELTA = 136.00 - 132.20
+    TILE_DIMENSIONS = (X_DELTA, Y_DELTA)
     DEBUG = True
 
     SERVER_PATH = r"C:\Users\QATCH\Documents\SVN Repos\SensorQC"
 
-    Z_HEIGHT = 6.5
+    Z_HEIGHT = 30.00
 
-    TOP_LEFT = (110.0 - X_DELTA,
-                126.6 + Y_DELTA)
-    BOTTOM_RIGHT = (120.2 + X_DELTA,
-                    116.5 - Y_DELTA)
+    TOP_LEFT = (122.7 - X_DELTA,
+                134.0 + Y_DELTA)
+    BOTTOM_RIGHT = (134.0 + X_DELTA,
+                    123.0 - Y_DELTA)
     NUM_VIDEO_CAPTURE_DEVICES = 2
     TILE_TO_TILE_DELAY = 0.5
+    SENSOR_DIMESNIONS = (10.85, 11.40)
+    z_values = np.array([6.5, 30.0])
+    width_values = np.array([1.4, 6.9])
+    height_values = np.array([1.0, 3.8])
 
 
 @classmethod

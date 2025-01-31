@@ -6,9 +6,9 @@ import matplotlib.cm as cm
 
 def compute_tile_dimensions(z_height):
     # Given data points
-    z_values = np.array([6.5, 45.0])
-    width_values = np.array([1.4, 14.7])
-    height_values = np.array([1.0, 7.9])
+    z_values = np.array([6.5, 30.0])
+    width_values = np.array([1.4, 6.9])
+    height_values = np.array([1.0, 3.8])
 
     # Fit a power function (log-log transform for better scaling behavior)
     width_coeffs = np.polyfit(np.log(z_values), np.log(width_values), 1)
