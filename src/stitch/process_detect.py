@@ -9,6 +9,8 @@ from logging.handlers import QueueHandler
 from matplotlib import pyplot as plt
 from process_common import CheckStd, SCALE_BY
 
+SKIP_DETECTOR = False
+
 
 class ProcessDetector(multiprocessing.Process):
 
@@ -147,6 +149,11 @@ class ProcessDetector(multiprocessing.Process):
 
     def compare_tiles(self, path1, path2, is_column=False):
         """ is_column: Set True to prevent return of 'smallest error' offset """
+
+        if SKIP_DETECTOR:
+            self.logger.warning(
+                "Skipping image comparison, using fixed average only")
+            return (-1, -1), {is_column: (-1, -1)}
 
         img1 = cv.imread(path1, cv.IMREAD_GRAYSCALE)  # queryImage
         img2 = cv.imread(path2, cv.IMREAD_GRAYSCALE)  # trainImage

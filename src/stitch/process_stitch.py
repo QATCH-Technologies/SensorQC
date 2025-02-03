@@ -741,12 +741,52 @@ class ProcessStitcher(multiprocessing.Process):
                     offset_y_raw.sort()
                     # self.logger.debug(offset_x_raw)
                     # self.logger.debug(offset_y_raw)
-                    offset_x_avg = round(
-                        offset_x_raw[int(len(offset_x_raw) / 2)])
-                    offset_y_avg = round(
-                        offset_y_raw[int(len(offset_y_raw) / 2)])
-                    # offset_x_std = round(np.std(offset_x_raw))
-                    # offset_y_std = round(np.std(offset_y_raw))
+                    if False: # do not do this, not fully baked
+                        # this does not work at lower FLANN resolutions where placement is noisy
+                        offset_x_avg = round(
+                            offset_x_raw[int(len(offset_x_raw) / 2)])
+                        offset_y_avg = round(
+                            offset_y_raw[int(len(offset_y_raw) / 2)])
+                        # offset_x_std = round(np.std(offset_x_raw))
+                        # offset_y_std = round(np.std(offset_y_raw))
+                    else:
+                        # Alternative method: Look for widest area of minimal changes in guesses
+                        # process X coord:
+                        loop_count = -1  # mimic do-while loop
+                        offset_x_diff = offset_x_raw
+                        min_x_diff = -1
+                        while loop_count < 0 or (offset_x_diff == min_x_diff).sum() > 1:
+                            offset_x_diff = np.diff(offset_x_diff)
+                            min_x_diff = np.min(np.abs(offset_x_diff))
+                            loop_count += 1  # mimic do-while loop
+                        offset_x_diff = round(loop_count / 2) + np.argmin(
+                            np.abs(offset_x_diff))
+                        offset_x_avg = offset_x_raw[offset_x_diff]
+                        # calculate STD for X:
+                        # of_len = len(offset_x_raw)
+                        # lo_lim = max(0, offset_x_diff - loop_count)
+                        # up_lim = min(
+                        #     of_len - 1, offset_x_diff + loop_count) + 1
+                        # offset_x_std = max(1, round(
+                        #     np.std(offset_x_raw[lo_lim:up_lim])))
+                        # process Y coord:
+                        loop_count = -1  # mimic do-while loop
+                        offset_y_diff = offset_y_raw
+                        min_y_diff = -1
+                        while loop_count < 0 or (offset_y_diff == min_y_diff).sum() > 1:
+                            offset_y_diff = np.diff(offset_y_diff)
+                            min_y_diff = np.min(np.abs(offset_y_diff))
+                            loop_count += 1  # mimic do-while loop
+                        offset_y_diff = round(loop_count / 2) + np.argmin(
+                            np.abs(offset_y_diff))
+                        offset_y_avg = offset_y_raw[offset_y_diff]
+                        # calculate STD for Y:
+                        # of_len = len(offset_y_raw)
+                        # lo_lim = max(0, offset_y_diff - loop_count)
+                        # up_lim = min(
+                        #     of_len - 1, offset_y_diff + loop_count) + 1
+                        # offset_y_std = max(1, round(
+                        #     np.std(offset_y_raw[lo_lim:up_lim])))
                     offset_x_raw, offset_y_raw = [], []
                     self.logger.debug(
                         f"1st row midpoint offset: ({offset_x_avg}, {offset_y_avg})")
@@ -773,10 +813,11 @@ class ProcessStitcher(multiprocessing.Process):
                             offset_x_raw.append(offset[0])
                         if check[1]:
                             offset_y_raw.append(offset[1])
-                    offset_x_avg = round(np.average(offset_x_raw))
-                    offset_y_avg = round(np.average(offset_y_raw))
-                    offset_x_std = round(np.std(offset_x_raw))
-                    offset_y_std = round(np.std(offset_y_raw))
+                    if len(offset_x_raw) and len(offset_y_raw):
+                        offset_x_avg = round(np.average(offset_x_raw))
+                        offset_y_avg = round(np.average(offset_y_raw))
+                        offset_x_std = max(1, round(np.std(offset_x_raw)))
+                        offset_y_std = max(1, round(np.std(offset_y_raw)))
                     self.logger.debug(
                         f"Row-end average offset: ({offset_x_avg}, {offset_y_avg})")
                     self.logger.debug(
@@ -1478,4 +1519,5 @@ if __name__ == '__main__':
     path = os.path.dirname(path)
     path = os.path.join(path, "content\\images\\raw_images\\")
     proc.config(path)
+    # proc.create_stitched_matrix()
     proc.place_tiles_absolutely()
