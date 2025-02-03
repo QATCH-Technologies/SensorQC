@@ -483,8 +483,11 @@ class WindowStitcher(QWidget):
                     borderValue=self.trans_color,
                 )
                 if i == 0:
+                    search_direction = 1 if rotation > 0 else -1
+                    first_row_pixels = this_tile_adjusted[:, 0]
                     for px in range(min(w, h)):
-                        if tuple(this_tile_adjusted[:, 0][px]) != self.trans_color:
+                        this_pixel_color = first_row_pixels[search_direction*px]
+                        if tuple(this_pixel_color) != self.trans_color:
                             crop_pixels = px
                             break
                 this_tile_adjusted = this_tile_adjusted[
