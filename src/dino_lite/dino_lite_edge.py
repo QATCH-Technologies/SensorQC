@@ -28,10 +28,8 @@ class DinoLiteEdge:
     def __init__(
         self,
         device_name=MicroscopeConstants.NAME,
-        devcon_path=SystemConstants.DEVCON_PATH,
     ):
         self.device_name = device_name
-        self.devcon_path = devcon_path
         self.device_id = self.find_device(device_name)
 
         if not self.device_id:
@@ -45,7 +43,8 @@ class DinoLiteEdge:
     def execute_command(self, command):
         """Executes a system command and returns the output."""
         try:
-            result = subprocess.run(command, capture_output=True, text=True, shell=True)
+            result = subprocess.run(
+                command, capture_output=True, text=True, shell=True)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
@@ -65,7 +64,8 @@ class DinoLiteEdge:
                 if device_name in line:
                     # Extract the device instance ID from the line
                     device_id = line.split(":")[0].strip()
-                    logger.info(f"Device ID for '{device_name}' found: {device_id}")
+                    logger.info(
+                        f"Device ID for '{device_name}' found: {device_id}")
                     return device_id
         logger.warning(f"Device '{device_name}' not found.")
         return None
@@ -147,7 +147,8 @@ class Microscope(DinoLiteEdge):
     def flc_off(self):
         if self._debug:
             return f"[DEBUG] FLC off."
-        self._microscope.SetFLCSwitch(self._device_index, MicroscopeConstants.FLC_OFF)
+        self._microscope.SetFLCSwitch(
+            self._device_index, MicroscopeConstants.FLC_OFF)
 
     def flc_level(self, level: int = MicroscopeConstants.DEFAULT_FLC_LEVEL):
         if self._debug:
@@ -171,7 +172,8 @@ class Microscope(DinoLiteEdge):
     def led_off(self):
         if self._debug:
             return f"[DEBUG] led off."
-        self._microscope.SetLEDState(self._device_index, MicroscopeConstants.LED_OFF)
+        self._microscope.SetLEDState(
+            self._device_index, MicroscopeConstants.LED_OFF)
         time.sleep(MicroscopeConstants.COMMAND_TIME)
 
     def set_index(self, device_index: int = MicroscopeConstants.DEVICE_INDEX):
@@ -248,7 +250,8 @@ class Microscope(DinoLiteEdge):
 
         if fov == math.inf:
             fov = round(
-                self._microscope.FOVx(MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0,
+                self._microscope.FOVx(
+                    MicroscopeConstants.DEVICE_INDEX, 50.0) / 1000.0,
                 2,
             )
             fov_info = {"magnification": 50.0, "fov_um": fov}
@@ -301,8 +304,10 @@ class Camera:
             # Replace with actual device index
             self._camera = cv2.VideoCapture(1)
             self._camera.set(cv2.CAP_PROP_FPS, 30)
-            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH,
+                             CameraConstants.CAMERA_RESOLUTIONS["2582x1944"][0])
+            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT,
+                             CameraConstants.CAMERA_RESOLUTIONS["2582x1944"][1])
             self._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.running = False
 
