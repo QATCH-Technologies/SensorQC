@@ -19,7 +19,7 @@ import numpy as np
 import cv2
 import time
 from PyQt5.QtGui import QPixmap, QImage
-
+import logging as log
 
 Z_RANGE = (10.7, 11)
 INLET_POSITION = (111.9, 125.2, Z_RANGE[0])
@@ -42,7 +42,8 @@ class ScanThread(QThread):
         self.best_sharpness = -np.inf
 
     def run(self):
-        total_steps = len(np.arange(self.z_range[0], self.z_range[1], self.z_step))
+        total_steps = len(
+            np.arange(self.z_range[0], self.z_range[1], self.z_step))
         current_step = 0
         self.rob.go_to(INLET_POSITION[0], INLET_POSITION[1], INLET_POSITION[2])
         time.sleep(4)
@@ -62,6 +63,7 @@ class ScanThread(QThread):
             self.progress_updated.emit(progress)
 
         if self.best_image is not None:
+
             file_path = os.path.join(self.save_path, f"{self.scan_name}.jpg")
             cv2.imwrite(file_path, self.best_image)
             print(f"Best image saved at: {file_path}")
@@ -84,7 +86,7 @@ class ScanUI(QWidget):
 
         self.cam = Camera()
         self.scope = Microscope()
-        self.rob = Robot(port="COM4")
+        self.rob = Robot()
 
         self.scope.led_on(MicroscopeConstants.DARK_FIELD)
         self.rob.begin()
@@ -138,7 +140,8 @@ class ScanUI(QWidget):
         self.setLayout(layout)
 
     def browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Save Directory")
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Save Directory")
         if folder:
             self.save_path = folder
             self.path_label.setText(f"Save Path: {self.save_path}")

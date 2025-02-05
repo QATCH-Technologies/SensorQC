@@ -75,6 +75,9 @@ class CameraConstants:
         "2582x1944": (2582, 1944),
     }
 
+    DEFAULT_DPI = 96
+    PHYSICAL_IMG_DIM_463X = (0.85, 0.6)
+
 
 class MicroscopeConstants:
     """Constants for microscope configuration."""
