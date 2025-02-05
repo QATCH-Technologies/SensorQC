@@ -111,7 +111,7 @@ class Robot(object):
             logger.debug("DEBUG MODE: start")
 
     def out_of_way(self) -> None:
-        self.go_to(175, 175, z_position=SystemConstants.Z_HEIGHT)
+        self.go_to(120, 120, z_position=SystemConstants.Z_HEIGHT)
 
     def end(self) -> None:
         if self._serial:
