@@ -73,7 +73,7 @@ class ScanThread(QThread):
         height, width, _ = image.shape
 
         # Grid spacing in pixels
-        major_x_spacing = 304  # Major grid: 0.1mm in X
+        major_x_spacing = 319  # Major grid: 0.1mm in X
         major_y_spacing = 324  # Major grid: 0.1mm in Y
 
         minor_x_spacing = major_x_spacing // 2  # Minor grid: 0.05mm in X
