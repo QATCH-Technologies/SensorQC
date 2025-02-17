@@ -21,8 +21,8 @@ import time
 from PyQt5.QtGui import QPixmap, QImage
 import logging as log
 
-Z_RANGE = (10.7, 11)
-INLET_POSITION = (111.9, 125.2, Z_RANGE[0])
+Z_RANGE = (9.0, 12.0)
+INLET_POSITION = (112.2, 125.1, Z_RANGE[0])
 Z_STEP = 0.05
 
 
@@ -42,8 +42,7 @@ class ScanThread(QThread):
         self.best_sharpness = -np.inf
 
     def run(self):
-        total_steps = len(
-            np.arange(self.z_range[0], self.z_range[1], self.z_step))
+        total_steps = len(np.arange(self.z_range[0], self.z_range[1], self.z_step))
         current_step = 0
         self.rob.go_to(INLET_POSITION[0], INLET_POSITION[1], INLET_POSITION[2])
         time.sleep(4)
@@ -90,34 +89,34 @@ class ScanThread(QThread):
 
         # Draw minor grid lines (lighter)
         for x in range(0, width, minor_x_spacing):
-            cv2.line(image, (x, 0), (x, height),
-                     minor_grid_color, thickness_minor)
+            cv2.line(image, (x, 0), (x, height), minor_grid_color, thickness_minor)
 
         for y in range(0, height, minor_y_spacing):
-            cv2.line(image, (0, y), (width, y),
-                     minor_grid_color, thickness_minor)
+            cv2.line(image, (0, y), (width, y), minor_grid_color, thickness_minor)
 
         # Draw major grid lines (bolder)
         for x in range(0, width, major_x_spacing):
-            cv2.line(image, (x, 0), (x, height),
-                     major_grid_color, thickness_major)
+            cv2.line(image, (x, 0), (x, height), major_grid_color, thickness_major)
 
         for y in range(0, height, major_y_spacing):
-            cv2.line(image, (0, y), (width, y),
-                     major_grid_color, thickness_major)
+            cv2.line(image, (0, y), (width, y), major_grid_color, thickness_major)
 
         # Add annotations at major grid intersections
         for x in range(0, width, major_x_spacing):
             for y in range(0, height, major_y_spacing):
-                label = f"({x//major_x_spacing * 0.1:.1f}, {y//major_y_spacing * 0.1:.1f}) mm"
-                cv2.putText(image, label, (x + 5, y + 15),
-                            font, font_scale, text_color, 1)
+                label = f"({x // major_x_spacing * 0.1:.1f}, {y // major_y_spacing * 0.1:.1f}) mm"
+                cv2.putText(
+                    image, label, (x + 5, y + 15), font, font_scale, text_color, 1
+                )
+
+        return image
 
     def straighten_image(self):
         gray = cv2.cvtColor(self.best_image, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 50, 150)
         contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
         if contours:
             largest_contour = max(contours, key=cv2.contourArea)
             rect = cv2.minAreaRect(largest_contour)
@@ -130,8 +129,14 @@ class ScanThread(QThread):
             center = (w // 2, h // 2)
             rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
             straightened = cv2.warpAffine(
-                self.best_image, rotation_matrix, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-            return self.apply_scale(straightened)
+                self.best_image,
+                rotation_matrix,
+                (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
+
+            return self.apply_scale(self.best_image)
         else:
             print("No contours found, skipping straightening.")
             return self.apply_scale(self.best_image)
@@ -146,7 +151,7 @@ class ScanThread(QThread):
 class ScanUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.scan_name = "Sensor_"
+        self.scan_name = "M2UOG13W13_Sensor_"
         self.save_path = os.getcwd()  # Default save path is the current directory
         self.scan_in_progress = False
 
@@ -206,8 +211,7 @@ class ScanUI(QWidget):
         self.setLayout(layout)
 
     def browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select Save Directory")
+        folder = QFileDialog.getExistingDirectory(self, "Select Save Directory")
         if folder:
             self.save_path = folder
             self.path_label.setText(f"Save Path: {self.save_path}")
@@ -263,7 +267,7 @@ class ScanUI(QWidget):
             self.scan_in_progress = False
         self.rob.go_to(INLET_POSITION[0], INLET_POSITION[1], INLET_POSITION[2])
         time.sleep(1)
-        self.name_input.setText("Sensor_")
+        self.name_input.setText("M2UOG13W13_Sensor_")
         self.progress_bar.setValue(0)
         print("Scan reset.")
 
