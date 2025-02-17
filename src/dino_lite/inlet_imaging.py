@@ -21,9 +21,9 @@ import time
 from PyQt5.QtGui import QPixmap, QImage
 import logging as log
 
-Z_RANGE = (9.0, 12.0)
-INLET_POSITION = (112.2, 125.1, Z_RANGE[0])
-Z_STEP = 0.05
+Z_RANGE = (6.1, 6.4)
+INLET_POSITION = (111.5, 125.1, Z_RANGE[0])
+Z_STEP = 0.01
 
 
 class ScanThread(QThread):
@@ -275,7 +275,7 @@ class ScanUI(QWidget):
         self.progress_bar.setValue(progress)
 
     def closeEvent(self, event):
-        self.rob.out_of_way()
+        # self.rob.out_of_way()
         self.scope.end()
         self.cam._camera.release()
         event.accept()
