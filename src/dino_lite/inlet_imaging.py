@@ -32,6 +32,10 @@ DEFAULT_INLET_POSITION = (111.9, 125.2, 10.7)
 DEFAULT_Z_RANGE = (10.7, 11)
 DEFAULT_Z_STEP = 0.05
 
+# Color definitions from FW LCD driver code:
+# QATCH_BLUE_FG: #00A3DA  -> used for the button background color.
+# QATCH_GREY_BG: #F6F6F6  -> used for the button text (foreground) color.
+
 
 def compute_offset(target_img, live_img):
     """
@@ -112,7 +116,7 @@ class CameraThread(QThread):
             status, frame = self.camera._camera.read()
             if status:
                 self.frame_captured.emit(frame)
-            self.msleep(10)  # Adjust sleep for desired framerate
+            self.msleep(1)  # Adjust sleep for desired framerate
 
     def stop(self):
         self.running = False
@@ -214,6 +218,9 @@ class ScanUI(QWidget):
         self.y_step = 0.1
         self.z_step = DEFAULT_Z_STEP
 
+        # Allow this widget to receive keyboard events.
+        self.setFocusPolicy(Qt.StrongFocus)
+
         self.init_ui()
         self.init_camera_thread()
 
@@ -230,14 +237,14 @@ class ScanUI(QWidget):
                 color: #333;
             }
             QPushButton {
-                background-color: #4CAF50;
-                color: white;
+                background-color: #00A3DA; /* QATCH_BLUE_FG */
+                color: #F6F6F6;           /* QATCH_GREY_BG used as text color */
                 border: none;
                 padding: 8px 16px;
                 border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: #0081B0; /* Slightly darker blue for hover */
             }
             QLineEdit {
                 border: 1px solid #ccc;
@@ -651,6 +658,34 @@ class ScanUI(QWidget):
             self.live_feed_label.size(), Qt.KeepAspectRatio)
         self.live_feed_label.setPixmap(pixmap)
         self.update_position_label()
+
+    def keyPressEvent(self, event):
+        """
+        Override keyPressEvent to allow WASD control on the Manual Control tab.
+        W -> Move Y+ (forward)
+        S -> Move Y- (backward)
+        A -> Move X- (left)
+        D -> Move X+ (right)
+        """
+        # Only activate WASD controls when Manual Control tab (index 1) is active.
+        if self.tabs.currentIndex() == 1:
+            key = event.key()
+            if key == Qt.Key_W:
+                self.move_y_positive()
+            elif key == Qt.Key_S:
+                self.move_y_negative()
+            elif key == Qt.Key_A:
+                self.move_x_negative()
+            elif key == Qt.Key_D:
+                self.move_x_positive()
+            elif key == Qt.Key_Up:
+                self.move_z_positive()
+            elif key == Qt.Key_Down:
+                self.move_z_negative()
+            else:
+                super().keyPressEvent(event)
+        else:
+            super().keyPressEvent(event)
 
     def closeEvent(self, event):
         self.camera_thread.stop()
