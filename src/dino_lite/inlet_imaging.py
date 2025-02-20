@@ -196,7 +196,6 @@ class ScanUI(QWidget):
         self.init_camera_thread()
 
     def init_ui(self):
-        # Apple-inspired minimalistic style with your custom colors.
         self.setStyleSheet("""
             QMainWindow { background-color: #FFFFFF; }
             QWidget {
@@ -683,7 +682,7 @@ class ScanUI(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Apple-Style Scan Control Panel")
+        self.setWindowTitle("Scan Control Panel")
         self.resize(980, 750)
         self.scan_ui = ScanUI()
         self.setCentralWidget(self.scan_ui)
