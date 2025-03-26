@@ -21,8 +21,8 @@ import time
 from PyQt5.QtGui import QPixmap, QImage
 import logging as log
 
-Z_RANGE = (6.1, 6.4)
-INLET_POSITION = (111.5, 125.1, Z_RANGE[0])
+Z_RANGE = (5.3, 5.7)
+INLET_POSITION = (111.4, 127.9, Z_RANGE[0])
 Z_STEP = 0.01
 
 
